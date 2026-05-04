@@ -1,0 +1,190 @@
+.incidents-page {
+  flex: 1;
+  overflow-y: auto;
+  padding: 28px 28px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.incidents-header {
+  margin-bottom: 20px;
+}
+
+.page-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1a1d23;
+  margin-bottom: 6px;
+  letter-spacing: -0.3px;
+}
+
+.page-subtitle {
+  font-size: 13.5px;
+  color: #6b7280;
+  line-height: 1.5;
+  max-width: 520px;
+}
+
+.filters-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.filters-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.filter-pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border: 1px solid #e2e5ea;
+  border-radius: 20px;
+  background: #fff;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.filter-pill:hover {
+  border-color: #c5cdd9;
+  background: #f9fafb;
+}
+
+.filter-pill.active {
+  background: #f0f4ff;
+  border-color: #bfccfa;
+  color: #3b6ef8;
+}
+
+.filters-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.results-count {
+  font-size: 12.5px;
+  color: #6b7280;
+}
+
+.view-toggle {
+  display: flex;
+  border: 1px solid #e2e5ea;
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+.view-btn {
+  padding: 6px 9px;
+  background: #fff;
+  border: none;
+  cursor: pointer;
+  color: #9ca3af;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+
+.view-btn + .view-btn {
+  border-left: 1px solid #e2e5ea;
+}
+
+.view-btn.active {
+  background: #f0f4ff;
+  color: #3b6ef8;
+}
+
+.view-btn:hover:not(.active) {
+  background: #f9fafb;
+  color: #6b7280;
+}
+
+.table-wrapper {
+  background: #fff;
+  border: 1px solid #e8eaed;
+  border-radius: 10px;
+  overflow: hidden;
+  flex: 1;
+}
+
+.incidents-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.incidents-table thead tr {
+  background: #f9fafb;
+  border-bottom: 1px solid #e8eaed;
+}
+
+.incidents-table th {
+  padding: 11px 16px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  color: #9ca3af;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.col-id { width: 72px; }
+.col-summary { width: auto; }
+.col-severity { width: 110px; }
+.col-status { width: 100px; }
+.col-assigned { width: 130px; }
+.col-confidence { width: 140px; }
+.col-action { width: 76px; }
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 4px 0;
+}
+
+.pagination-info {
+  font-size: 12.5px;
+  color: #6b7280;
+}
+
+.pagination-btns {
+  display: flex;
+  gap: 8px;
+}
+
+.page-btn {
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid #e2e5ea;
+  border-radius: 7px;
+  background: #fff;
+  color: #374151;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  transition: background 0.15s;
+}
+
+.page-btn:hover:not(:disabled) {
+  background: #f9fafb;
+}
+
+.page-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

@@ -1,0 +1,102 @@
+/* Reset some defaults */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Root app layout */
+.app {
+  display: flex;
+  height: 100vh;
+  width: 100%;
+  background-color: #f8fafc; /* light gray background */
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 250px;
+  flex-shrink: 0;
+  background-color: #ffffff;
+  border-right: 1px solid #e5e7eb;
+}
+
+/* Main content area */
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+/* Header (top bar) */
+.header {
+  height: 70px;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+}
+
+/* Page content (below header) */
+.content-area {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
+}
+
+/* Make tables / cards stretch properly */
+.full-width {
+  width: 100%;
+}
+
+/* Utility classes */
+.flex {
+  display: flex;
+}
+
+.flex-column {
+  display: flex;
+  flex-direction: column;
+}
+
+.flex-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Buttons (basic styling similar to your UI) */
+.btn-primary {
+  background-color: #2563eb;
+  color: white;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.btn-primary:hover {
+  background-color: #1d4ed8;
+}
+
+/* Small badges (status, severity etc.) */
+.badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* Scrollbar (optional, cleaner UI) */
+.content-area::-webkit-scrollbar {
+  width: 6px;
+}
+
+.content-area::-webkit-scrollbar-thumb {
+  background-color: #cbd5f5;
+  border-radius: 10px;
+}
