@@ -1,7 +1,9 @@
 .incident-details-page {
   padding: 22px 24px;
   background-color: #ffffff;
-  /* allow the page to size within the scrollable main-content */
+  /* keep page height natural and allow the main layout to handle scrolling */
+  display: block;
+  height: auto;
   min-height: 0;
 }
 
@@ -144,8 +146,8 @@
   display: grid;
   grid-template-columns: 1fr 350px;
   gap: 24px;
-  /* allow the content area to scroll when tall */
-  overflow: auto;
+  /* let the outer page (main-content) handle scrolling instead of this inner grid */
+  overflow: visible;
   min-height: 0;
 }
 

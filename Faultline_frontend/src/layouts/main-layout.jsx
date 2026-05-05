@@ -10,6 +10,11 @@ export default function MainLayout({ children }) {
   const [activePage, setActivePage] = useState("incidents");
   const [selectedIncident, setSelectedIncident] = useState(null);
 
+  const handleNavigate = (pageKey) => {
+    setSelectedIncident(null);
+    setActivePage(pageKey);
+  };
+
   const pageContent = {
     dashboard: <DashboardPage />,
     incidents: <IncidentsPage onSelectIncident={setSelectedIncident} />,
@@ -21,7 +26,7 @@ export default function MainLayout({ children }) {
   if (selectedIncident) {
     return (
       <div className="app-layout">
-        <Sidebar activePage={activePage} onNavigate={setActivePage} />
+        <Sidebar activePage={activePage} onNavigate={handleNavigate} />
 
         <div className="main-content">
           <Header />
@@ -33,7 +38,7 @@ export default function MainLayout({ children }) {
 
   return (
     <div className="app-layout">
-      <Sidebar activePage={activePage} onNavigate={setActivePage} />
+      <Sidebar activePage={activePage} onNavigate={handleNavigate} />
 
       <div className="main-content">
         <Header />

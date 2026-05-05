@@ -123,8 +123,20 @@ function IncidentRow({ incident, onSelectIncident }) {
   const sev = severityMap[incident.severity] ?? severityMap.LOW;
   const sta = statusMap[incident.status] ?? statusMap.Active;
 
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      onSelectIncident?.(incident);
+    }
+  };
+
   return (
-    <tr className="incident-row">
+    <tr
+      className="incident-row"
+      tabIndex={0}
+      role="button"
+      onClick={() => onSelectIncident?.(incident)}
+      onKeyDown={handleKeyDown}
+    >
       <td className="cell-id">{incident.id}</td>
       <td className="cell-summary">
         <div className="incident-title">{incident.summary}</div>
@@ -153,10 +165,10 @@ function IncidentRow({ incident, onSelectIncident }) {
         </div>
       </td>
       <td>
-        <button 
-          className="view-link" 
+        <button
+          className="view-link"
           type="button"
-          onClick={() => onSelectIncident?.(incident)}
+          onClick={(e) => { e.stopPropagation(); onSelectIncident?.(incident); }}
         >VIEW</button>
       </td>
     </tr>
