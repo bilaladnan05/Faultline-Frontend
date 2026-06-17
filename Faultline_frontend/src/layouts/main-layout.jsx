@@ -4,42 +4,84 @@ import Header from "./header/header.jsx";
 import DashboardPage from "../features/dashboard/dashboard-page";
 import IncidentsPage from "../features/incidents/incidents-page";
 import IncidentDetailsPage from "../features/incidents/incident-details-page";
+import PRIssuancePage from "../features/incidents/pr-issuance-page";
+import AlertsPage from "../features/alerts/alerts-page";
+import DeploymentsPage from "../features/deployments/deployments-page";
+import RuntimePage from "../features/runtime/runtime-page";
 import UserManagementPage from "../features/user-management/user-management-page";
+import ReportsPage from "../features/reports/reports-page";
 
 export default function MainLayout({ children }) {
   const [activePage, setActivePage] = useState("incidents");
   const [selectedIncident, setSelectedIncident] = useState(null);
+  const [viewingPR, setViewingPR] = useState(false);
 
   const handleNavigate = (pageKey) => {
     setSelectedIncident(null);
+    setViewingPR(false);
     setActivePage(pageKey);
   };
 
-  const pageContent = {
-    dashboard: <DashboardPage />,
-    incidents: <IncidentsPage onSelectIncident={setSelectedIncident} />,
-    "user-management": <UserManagementPage />,
-    services: <PlaceholderPage title="Services" description="Services view coming soon." />,
-    settings: <PlaceholderPage title="Settings" description="Settings view coming soon." />,
+  const handleSelectIncident = (incident) => {
+    setViewingPR(false);
+    setSelectedIncident(incident);
   };
 
-  if (selectedIncident) {
+  const handleIssuePR = () => {
+    setViewingPR(true);
+  };
+
+  const handleBackFromPR = () => {
+    setViewingPR(false);
+  };
+
+  const handleBackFromIncident = () => {
+    setSelectedIncident(null);
+    setViewingPR(false);
+  };
+
+  if (selectedIncident && viewingPR) {
     return (
       <div className="app-layout">
         <Sidebar activePage={activePage} onNavigate={handleNavigate} />
-
         <div className="main-content">
           <Header />
-          <IncidentDetailsPage incident={selectedIncident} onBack={() => setSelectedIncident(null)} />
+          <PRIssuancePage incident={selectedIncident} onBack={handleBackFromPR} />
         </div>
       </div>
     );
   }
 
+  if (selectedIncident) {
+    return (
+      <div className="app-layout">
+        <Sidebar activePage={activePage} onNavigate={handleNavigate} />
+        <div className="main-content">
+          <Header />
+          <IncidentDetailsPage
+            incident={selectedIncident}
+            onBack={handleBackFromIncident}
+            onIssuePR={handleIssuePR}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  const pageContent = {
+    dashboard: <DashboardPage />,
+    incidents: <IncidentsPage onSelectIncident={handleSelectIncident} />,
+    alerts: <AlertsPage />,
+    deployments: <DeploymentsPage />,
+    runtime: <RuntimePage />,
+    teams: <UserManagementPage />,
+    reports: <ReportsPage />,
+    settings: <PlaceholderPage title="Settings" description="Settings configuration coming soon." />,
+  };
+
   return (
     <div className="app-layout">
       <Sidebar activePage={activePage} onNavigate={handleNavigate} />
-
       <div className="main-content">
         <Header />
         {pageContent[activePage] ?? children}

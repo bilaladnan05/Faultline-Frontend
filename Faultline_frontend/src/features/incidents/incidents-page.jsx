@@ -3,7 +3,7 @@ import "./incidents-page.css";
 
 const incidents = [
   {
-    id: "#FL-2024-082",
+    id: "FL-101",
     summary: "Database Latency Spike - Region US-East",
     description: "Detected 12m ago via AWS Cloudwatch",
     severity: "CRITICAL",
@@ -16,7 +16,52 @@ const incidents = [
     service: "Checkout-Service v2",
     impact: "350 Users/min affected",
     elapsedTime: "00:22:45",
-  }
+  },
+  {
+    id: "FL-102",
+    summary: "API Auth Failures - Auth0 Integration",
+    description: "Increasing error rate (5.4%) in production",
+    severity: "HIGH",
+    status: "Active",
+    assignee: "Alex Rivera",
+    assigneeInitials: "AR",
+    avatarColor: "#6366f1",
+    confidence: 85,
+    title: "API Auth Failures - Auth0 Integration",
+    service: "Auth-Service v3",
+    impact: "120 Users/min affected",
+    elapsedTime: "00:38:12",
+  },
+  {
+    id: "FL-99",
+    summary: "SSL Certificate Expiry Warning",
+    description: "Expiring in 48 hours: payments.faultline.io",
+    severity: "MEDIUM",
+    status: "Resolved",
+    assignee: "Jordan Lee",
+    assigneeInitials: "JL",
+    avatarColor: "#10b981",
+    confidence: 45,
+    title: "SSL Certificate Expiry Warning",
+    service: "Payments Gateway",
+    impact: "Service disruption risk",
+    elapsedTime: "02:10:00",
+  },
+  {
+    id: "FL-98",
+    summary: "Slow Page Loads - Marketing Landing Page",
+    description: "Reported via user feedback session",
+    severity: "LOW",
+    status: "Triaged",
+    assignee: "Taylor Wong",
+    assigneeInitials: "TW",
+    avatarColor: "#f59e0b",
+    confidence: 78,
+    title: "Slow Page Loads - Marketing Landing Page",
+    service: "Web-Frontend v1",
+    impact: "User experience degraded",
+    elapsedTime: "05:02:30",
+  },
 ];
 
 export default function IncidentsPage({ onSelectIncident }) {

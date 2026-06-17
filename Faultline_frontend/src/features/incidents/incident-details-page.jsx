@@ -1,6 +1,6 @@
 import "./incident-details-page.css";
 
-export default function IncidentDetailsPage({ incident, onBack }) {
+export default function IncidentDetailsPage({ incident, onBack, onIssuePR }) {
   const timelineSteps = [
     { label: "DETECTION", completed: true },
     { label: "TRIAGE", completed: true },
@@ -35,7 +35,7 @@ export default function IncidentDetailsPage({ incident, onBack }) {
           <h1>Incident Details</h1>
           <span className="incident-id">{incident.id}</span>
         </div>
-        <button className="btn-issue-pr">Issue PR 🔗</button>
+        <button className="btn-issue-pr" onClick={onIssuePR} type="button">Issue PR 🔗</button>
       </div>
 
       <div className="timeline-section">
