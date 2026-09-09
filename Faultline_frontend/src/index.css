@@ -1,0 +1,15 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', system-ui, sans-serif; background: #F5F6F8; }
+}
+
+@layer utilities {
+  .scrollbar-thin { scrollbar-width: thin; scrollbar-color: #e5e7eb transparent; }
+  .log-scroll { height: 360px; overflow-y: auto; }
+}
