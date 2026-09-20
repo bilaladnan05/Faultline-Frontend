@@ -11,6 +11,8 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     server: {
+      // `npm run dev` opens the browser straight onto the marketing page at "/".
+      open: '/',
       proxy: {
         '/api': {
           target,

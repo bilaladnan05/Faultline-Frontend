@@ -1,40 +1,72 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, AlertTriangle, Bell, Monitor, BookOpen,
-  BarChart2, Phone, Users, CreditCard, Settings, Zap, Plug, Rocket, ArrowLeftRight
+  BarChart2, Phone, Users, CreditCard, Settings, Zap, Plug, Rocket, ArrowLeftRight,
+  ScrollText, LogOut, ShieldCheck, Wrench
 } from "lucide-react";
 import { useProject } from "../../context/ProjectContext";
+import { useAuth } from "../../auth/AuthContext";
+import { PERMISSIONS, ROLES, roleLabel } from "../../auth/roles";
 
-// Org-level nav — shown before a project/deployment has been selected.
+/**
+ * Navigation, filtered by what the signed-in user may actually do.
+ *
+ * Each item names the permission it needs and is dropped when the user lacks it, so
+ * adding a screen means declaring its permission once rather than remembering to hide
+ * it in three places. This is presentation only — the API refuses these routes on its
+ * own, and a user who types the URL gets the forbidden page, not the data.
+ */
+
+// Org-level nav — shown before a project has been selected.
 const accountNavItems = [
-  { to: "/deployments", icon: Rocket, label: "Deployments" },
-  { to: "/team", icon: Users, label: "Team & Roles" },
-  { to: "/subscription", icon: CreditCard, label: "Subscription" },
-  { to: "/settings", icon: Settings, label: "Settings" },
+  { to: "/projects", icon: Rocket, label: "My Projects" },
+  { to: "/admin/users", icon: Users, label: "Users", permission: PERMISSIONS.USER_VIEW },
+  { to: "/admin/audit", icon: ScrollText, label: "Audit Logs", permission: PERMISSIONS.AUDIT_VIEW },
+  { to: "/team", icon: ShieldCheck, label: "Team & Roles", permission: PERMISSIONS.USER_VIEW },
+  { to: "/subscription", icon: CreditCard, label: "Subscription", permission: PERMISSIONS.SETTINGS_MANAGE },
+  { to: "/settings", icon: Settings, label: "Settings", permission: PERMISSIONS.SETTINGS_MANAGE },
 ];
 
-// Project workspace nav — shown once a project has been selected via "Manage".
+// Project workspace nav — shown once a project has been opened.
 const projectNavItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-  { to: "/incidents", icon: AlertTriangle, label: "Incidents" },
+  { to: "/incidents", icon: AlertTriangle, label: "My Incidents" },
   { to: "/alerts", icon: Bell, label: "Alerts" },
-  { to: "/integrations", icon: Plug, label: "Integrations" },
   { to: "/runtime", icon: Monitor, label: "Runtime" },
-  { to: "/ledger", icon: BookOpen, label: "Incident Ledger" },
+  { to: "/ledger", icon: BookOpen, label: "Remediation" },
+  { to: "/integrations", icon: Plug, label: "Integrations", permission: PERMISSIONS.SETTINGS_MANAGE },
   { to: "/reporting", icon: BarChart2, label: "Reports" },
   { to: "/voice-agent", icon: Phone, label: "Voice Agent" },
-  { to: "/team", icon: Users, label: "Team & Roles" },
-  { to: "/subscription", icon: CreditCard, label: "Subscription" },
+  { to: "/admin/users", icon: Users, label: "Users", permission: PERMISSIONS.USER_VIEW },
+  { to: "/admin/audit", icon: ScrollText, label: "Audit Logs", permission: PERMISSIONS.AUDIT_VIEW },
+  { to: "/subscription", icon: CreditCard, label: "Subscription", permission: PERMISSIONS.SETTINGS_MANAGE },
 ];
+
+const initialsOf = (name = "", email = "") => {
+  const parts = (name || "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return ((email || "").slice(0, 2) || "??").toUpperCase();
+};
 
 export default function Sidebar() {
   const navigate = useNavigate();
   const { activeProject, clearActiveProject } = useProject();
-  const navItems = activeProject ? projectNavItems : accountNavItems;
+  const { user, can, signOut } = useAuth();
+
+  const navItems = (activeProject ? projectNavItems : accountNavItems).filter(
+    (item) => !item.permission || can(item.permission),
+  );
 
   const handleSwitchProject = () => {
     clearActiveProject();
-    navigate("/deployments");
+    navigate("/projects");
+  };
+
+  const handleSignOut = async () => {
+    clearActiveProject();
+    await signOut();
+    navigate("/login", { replace: true });
   };
 
   return (
@@ -92,19 +124,39 @@ export default function Sidebar() {
             </li>
           ))}
         </ul>
+
+        {/* An engineer's reach is their assignments; saying so beats an unexplained
+            short menu. */}
+        {user?.role === ROLES.ONSITE_ENGINEER && !activeProject && (
+          <p className="flex items-start gap-1.5 text-[11px] text-gray-400 mt-4 px-2 leading-relaxed">
+            <Wrench size={11} className="mt-0.5 flex-shrink-0" />
+            You see the projects an administrator has assigned to you.
+          </p>
+        )}
       </nav>
 
       {/* User */}
       <div className="px-3 py-3 border-t border-gray-200">
-        <div className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-gray-50 cursor-pointer" onClick={() => navigate("/team")}>
-          <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
-            <span className="text-indigo-700 text-xs font-bold">AR</span>
+        <div className="flex items-center gap-3 px-2 py-2 rounded-lg">
+          <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center flex-shrink-0">
+            <span className="text-indigo-700 text-xs font-bold">
+              {initialsOf(user?.name, user?.email)}
+            </span>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-gray-900 leading-tight">Alex Rivera</p>
-            <p className="text-xs text-gray-500">Administrator</p>
+            <p className="text-sm font-semibold text-gray-900 leading-tight truncate">
+              {user?.name ?? "Signed in"}
+            </p>
+            <p className="text-xs text-gray-500 truncate">{roleLabel(user?.role)}</p>
           </div>
-          <Settings size={14} className="text-gray-400 flex-shrink-0" />
+          <button
+            type="button"
+            onClick={handleSignOut}
+            title="Sign out"
+            className="text-gray-400 hover:text-red-600 transition-colors flex-shrink-0"
+          >
+            <LogOut size={14} />
+          </button>
         </div>
       </div>
     </aside>

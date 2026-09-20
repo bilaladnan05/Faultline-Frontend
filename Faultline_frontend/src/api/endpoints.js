@@ -5,7 +5,7 @@
  * `bucketMs`, on the metrics endpoint) so a rename on either side fails loudly instead
  * of silently dropping a filter.
  */
-import { apiGet } from "./client";
+import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from "./client";
 
 /* ---------------------------------------------------------------- system */
 
@@ -16,6 +16,87 @@ export const getHealth = (options) => apiGet("/health", undefined, options);
 export const getReadiness = (options) => apiGet("/health/ready", undefined, options);
 
 export const getSystemInfo = (options) => apiGet("/system/info", undefined, options);
+
+/* ------------------------------------------------------------------- auth */
+
+/**
+ * Exchanges credentials for an access token.
+ *
+ * `auth: false` because there is no session yet; sending a stale token here would be
+ * meaningless and, if it were expired, would trip the global sign-out handler mid-login.
+ */
+export const login = (email, password, options) =>
+  apiPost("/auth/login", { email, password }, { ...options, auth: false });
+
+export const logout = (options) => apiPost("/auth/logout", undefined, options);
+
+/** The identity behind the current token, re-read by the API from storage. */
+export const getCurrentUser = (options) => apiGet("/auth/me", undefined, options);
+
+/* --------------------------------------------------------------- projects */
+
+/**
+ * The projects the caller may see.
+ *
+ * The API scopes this by assignment, so an Onsite Engineer's list is already only their
+ * projects - the client does no filtering of its own and must not start to, or the two
+ * would be able to disagree.
+ */
+export const listProjects = (options) => apiGet("/projects", undefined, options);
+
+export const getProject = (projectId, options) =>
+  apiGet(`/projects/${encodeURIComponent(projectId)}`, undefined, options);
+
+/** Admin only; the API refuses anyone else. */
+export const createProject = (project, options) =>
+  apiPost("/projects", project, options);
+
+export const updateProject = (projectId, changes, options) =>
+  apiPatch(`/projects/${encodeURIComponent(projectId)}`, changes, options);
+
+export const deleteProject = (projectId, options) =>
+  apiDelete(`/projects/${encodeURIComponent(projectId)}`, options);
+
+/* ------------------------------------------------------- user management */
+
+export const listUsers = (options) => apiGet("/admin/users", undefined, options);
+
+export const createUser = (user, options) => apiPost("/admin/users", user, options);
+
+export const updateUser = (userId, changes, options) =>
+  apiPatch(`/admin/users/${encodeURIComponent(userId)}`, changes, options);
+
+/** Assignment is the single source of truth for an engineer's project access. */
+export const assignProject = (userId, projectId, environments, options) =>
+  apiPut(
+    `/admin/users/${encodeURIComponent(userId)}/projects/${encodeURIComponent(projectId)}`,
+    { environments: environments ?? [] },
+    options,
+  );
+
+export const unassignProject = (userId, projectId, options) =>
+  apiDelete(
+    `/admin/users/${encodeURIComponent(userId)}/projects/${encodeURIComponent(projectId)}`,
+    options,
+  );
+
+/* ---------------------------------------------------------------- audit */
+
+export const listAuditLog = (filter = {}, options) =>
+  apiGet(
+    "/admin/audit",
+    {
+      userId: filter.userId,
+      action: filter.action,
+      resourceType: filter.resourceType,
+      resourceId: filter.resourceId,
+      outcome: filter.outcome,
+      since: filter.since,
+      until: filter.until,
+      limit: filter.limit,
+    },
+    options,
+  );
 
 /* ------------------------------------------------------------- incidents */
 

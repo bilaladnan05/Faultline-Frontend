@@ -36,6 +36,35 @@ The API enables no CORS, so requests must be same-origin. In development Vite pr
 app behind the same origin as the API, or set `VITE_API_BASE_URL` to an absolute URL
 **only** if that deployment allows this origin.
 
+## Signing in, roles and what each role sees
+
+There are two roles, `admin` and `onsiteengineer`, and the second only reaches the
+projects an administrator has assigned to them.
+
+Sign in with an account the backend knows about. There is no demo bypass: the old
+`sessionStorage.setItem("fl_auth", "ok")` flow is gone, because anyone could grant
+themselves a session from the browser console. Create the first account with
+`npm run user:create` in `faultline-backend` — see its
+`docs/AUTHORIZATION.md`.
+
+| Piece | Where | Does what |
+|---|---|---|
+| `src/auth/roles.js` | roles, permissions, `hasProjectAccess` | mirrors `@faultline/auth` on the backend |
+| `src/auth/AuthContext.jsx` | the session | login, logout, `can()`, `canAccessProject()`; re-reads `/auth/me` on load |
+| `src/auth/guards.jsx` | route guards | `RequireAuth`, `RequireRole`, `RequireProjectAccess` |
+| `src/api/client.js` | every request | attaches the bearer token; a `401` anywhere ends the session once |
+
+**These guards are not the security boundary.** They keep the UI honest — nobody is
+offered a door that will be slammed in their face — but the API applies the same role
+and assignment rules to every request it receives. Deleting every guard in this app
+would not expose one row of another team's project: editing `/projects/project-a` to
+`/projects/project-b` in the address bar lands on `/forbidden`, and the `GET
+/api/projects/project-b` behind it answers `403` regardless.
+
+Navigation is filtered the same way: each item in `Sidebar.jsx` declares the permission
+it needs, so an Onsite Engineer sees My Projects, My Incidents and Remediation, and no
+administration links at all.
+
 ## How the frontend talks to the API
 
 All network code lives in `src/api/`:

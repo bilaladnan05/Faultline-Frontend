@@ -1,14 +1,13 @@
 import { useState, useRef, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Zap, ShieldCheck, AlertCircle } from "lucide-react";
 
 export default function MFAPage() {
-  const navigate = useNavigate();
   const location = useLocation();
   const email = location.state?.email || "user@faultline.io";
   const [digits, setDigits] = useState(Array(6).fill(""));
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
   const refs = useRef([]);
 
   useEffect(() => { refs.current[0]?.focus(); }, []);
@@ -25,15 +24,26 @@ export default function MFAPage() {
     if (e.key === "Backspace" && !digits[i] && i > 0) refs.current[i - 1]?.focus();
   };
 
+  /**
+   * The second factor is not wired to a provider yet.
+   *
+   * This page used to end the sign-in by writing a flag to sessionStorage, which meant
+   * anyone could grant themselves a session from the console. Authentication is now the
+   * API's job: it issues a token on /auth/login, and when AUTH_MFA_REQUIRED is turned on
+   * it refuses to issue one until a real MFA provider verifies the code. Until that
+   * provider exists there is nothing truthful for this screen to do, so it says so
+   * rather than pretending to check the digits.
+   */
   const handleSubmit = (e) => {
     e.preventDefault();
     const code = digits.join("");
-    if (code.length < 6) { setError("Please enter the 6-digit code."); return; }
-    setLoading(true);
-    setTimeout(() => {
-      sessionStorage.setItem("fl_auth", "ok");
-      navigate("/deployments");
-    }, 900);
+    if (code.length < 6) {
+      setError("Please enter the 6-digit code.");
+      return;
+    }
+    setError(
+      "Multi-factor authentication is not configured on this deployment. Sign in with your password.",
+    );
   };
 
   return (
@@ -91,13 +101,13 @@ export default function MFAPage() {
           </form>
 
           <p className="text-center text-xs text-gray-400 mt-4">
-            Demo: enter any 6 digits to proceed · FR-04
+            Not configured on this deployment · sign in with your password
           </p>
 
           <div className="mt-4 pt-4 border-t border-gray-100 text-center">
-            <button onClick={() => navigate("/login")} className="text-sm text-blue-600 hover:underline font-medium">
+            <Link to="/login" className="text-sm text-blue-600 hover:underline font-medium">
               ← Back to login
-            </button>
+            </Link>
           </div>
         </div>
       </div>
