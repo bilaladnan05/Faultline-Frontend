@@ -21,6 +21,13 @@ const styles = {
   READY: "bg-green-50 text-green-600 border border-green-200",
   BASELINE_NOT_READY: "bg-gray-100 text-gray-500 border border-gray-200",
 
+  // Service health as returned by IncidentTechnicalReport.
+  HEALTHY: "bg-green-50 text-green-600 border border-green-200",
+  DEGRADED: "bg-yellow-50 text-yellow-700 border border-yellow-200",
+  UNHEALTHY: "bg-red-50 text-red-600 border border-red-200",
+  UNKNOWN: "bg-gray-100 text-gray-500 border border-gray-200",
+  LINKED: "bg-green-50 text-green-600 border border-green-200",
+
   Triaged: "bg-cyan-50 text-cyan-600 border border-cyan-200",
   Investigating: "bg-purple-50 text-purple-600 border border-purple-200",
   Assigned: "bg-indigo-50 text-indigo-600 border border-indigo-200",

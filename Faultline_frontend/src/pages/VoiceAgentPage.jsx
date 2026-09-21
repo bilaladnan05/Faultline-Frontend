@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Phone, PhoneOff, PhoneCall, ChevronDown, ChevronUp, Settings } from "lucide-react";
 import TopBar from "../components/layout/TopBar";
-import StatusPill from "../components/ui/StatusPill";
 import { voiceCalls, escalationSettings } from "../mocks/voiceCalls";
 
 const OUTCOME_STYLES = {

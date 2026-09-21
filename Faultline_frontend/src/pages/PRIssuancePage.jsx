@@ -5,7 +5,7 @@ import TopBar from "../components/layout/TopBar";
 import { useApiResource } from "../hooks/useApiResource";
 import { getIncident } from "../api/endpoints";
 import { adaptIncident } from "../api/adapters";
-import { showToast } from "../components/ui/Toast";
+import { showToast } from "../utils/toast";
 
 const diffLines = [
   { type: "ctx", file: "src/dbClient.ts", line: 45, code: "  const poolConfig = {" },

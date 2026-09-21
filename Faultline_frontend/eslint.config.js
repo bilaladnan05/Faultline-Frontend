@@ -20,7 +20,7 @@ export default defineConfig([
   },
   {
     // Build configuration runs in Node, not the browser.
-    files: ['vite.config.js', 'eslint.config.js', 'postcss.config.js', 'tailwind.config.js'],
+    files: ['vite.config.js', 'eslint.config.js', 'postcss.config.js', 'tailwind.config.js', 'tests/**/*.js'],
     languageOptions: { globals: globals.node },
   },
 ])

@@ -1,6 +1,5 @@
-import { createContext, useContext, useState, useCallback } from "react";
-
-const ProjectContext = createContext(null);
+import { useState, useCallback } from "react";
+import { ProjectContext } from "./project-context";
 
 function readStoredProject() {
   try {
@@ -29,8 +28,4 @@ export function ProjectProvider({ children }) {
       {children}
     </ProjectContext.Provider>
   );
-}
-
-export function useProject() {
-  return useContext(ProjectContext);
 }

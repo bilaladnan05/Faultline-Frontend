@@ -116,6 +116,12 @@ export function formatMillis(milliseconds) {
   return `${hours}:${minutes}:${seconds}`;
 }
 
+/** Formats a backend-provided ratio without deriving the ratio in the browser. */
+export function formatPercentage(value, fractionDigits = 1) {
+  if (!Number.isFinite(value)) return "N/A";
+  return `${(value * 100).toFixed(fractionDigits)}%`;
+}
+
 /** Compact "14 min" / "2h 10m" for table columns. */
 export function formatAge(fromIso, toIso) {
   const from = Date.parse(fromIso);

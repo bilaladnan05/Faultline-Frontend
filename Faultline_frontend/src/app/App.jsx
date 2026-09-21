@@ -16,7 +16,8 @@ import TeamRolesPage from "../pages/TeamRolesPage";
 import AlertsPage from "../pages/AlertsPage";
 import DeploymentsPage from "../pages/DeploymentsPage";
 import SettingsPage from "../pages/SettingsPage";
-import { ProjectProvider, useProject } from "../context/ProjectContext";
+import { ProjectProvider } from "../context/ProjectContext";
+import { useProject } from "../context/useProject";
 
 function getAuth() {
   return sessionStorage.getItem("fl_auth") === "ok";

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AlertTriangle, Clock, Gauge, Zap, ArrowUpRight, RefreshCw, Activity } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Gauge, Zap, ArrowUpRight, RefreshCw, Activity } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import TopBar from "../components/layout/TopBar";
 import StatusPill from "../components/ui/StatusPill";
@@ -13,12 +13,11 @@ import {
   classificationLabel,
   formatAge,
   formatMetricValue,
-  formatMillis,
   metricLabel,
   severityRank,
 } from "../api/adapters";
 import { METRIC_RANGES, bucketForRange, findRange, windowEndingNow } from "../api/window";
-import { useProject } from "../context/ProjectContext";
+import { useProject } from "../context/useProject";
 
 const CHART_METRICS = TIMELINE_METRIC_NAMES.filter((name) => !name.endsWith("limit"));
 
@@ -65,12 +64,6 @@ export default function DashboardPage() {
     const resolved = adapted.filter((incident) => incident.resolvedAt);
     const critical = open.filter((incident) => incident.severity === "CRITICAL").length;
 
-    // Mean time to resolution over the incidents this cluster has actually closed.
-    const meanResolutionMs = resolved.length
-      ? resolved.reduce((total, incident) => total + (Date.parse(incident.resolvedAt) - Date.parse(incident.firstSeen)), 0) /
-        resolved.length
-      : null;
-
     const meanConfidence = adapted.length
       ? Math.round(adapted.reduce((total, incident) => total + incident.confidence, 0) / adapted.length)
       : null;
@@ -86,12 +79,12 @@ export default function DashboardPage() {
         deltaColor: critical ? "text-red-500" : "text-gray-400",
       },
       {
-        label: "MEAN RESOLUTION",
-        value: meanResolutionMs === null ? "—" : formatMillis(meanResolutionMs),
-        icon: Clock,
+        label: "RESOLVED INCIDENTS",
+        value: String(resolved.length),
+        icon: CheckCircle2,
         iconBg: "bg-blue-50",
         iconColor: "text-blue-500",
-        delta: resolved.length ? `across ${resolved.length} resolved` : "no resolved incidents yet",
+        delta: resolved.length ? "recorded by this cluster" : "no resolved incidents yet",
         deltaColor: "text-gray-400",
       },
       {

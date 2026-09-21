@@ -3,7 +3,7 @@ import {
   LayoutDashboard, AlertTriangle, Bell, Monitor, BookOpen,
   BarChart2, Phone, Users, CreditCard, Settings, Zap, Plug, Rocket, ArrowLeftRight
 } from "lucide-react";
-import { useProject } from "../../context/ProjectContext";
+import { useProject } from "../../context/useProject";
 
 // Org-level nav — shown before a project/deployment has been selected.
 const accountNavItems = [

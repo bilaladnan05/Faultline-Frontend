@@ -6,18 +6,23 @@ import {
   Bot,
   CheckCircle2,
   Circle,
+  FileText,
   GitBranch,
   Gauge,
   RefreshCw,
   ScrollText,
   TerminalSquare,
-  User,
 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import TopBar from "../components/layout/TopBar";
+import IncidentHeader from "../components/incidents/IncidentHeader";
+import IncidentTechnicalReport from "../components/incidents/IncidentTechnicalReport";
+import IncidentTimeline from "../components/incidents/IncidentTimeline";
+import SlackTicketStatus from "../components/incidents/SlackTicketStatus";
 import StatusPill from "../components/ui/StatusPill";
 import { AsyncSection, EmptyState, ErrorState, LoadingState } from "../components/ui/AsyncState";
 import { useApiResource } from "../hooks/useApiResource";
+import { useIncidentReport, useIncidentSlackTicket } from "../hooks/useReporting";
 import { getIncident, getIncidentEvidence, listBaselines } from "../api/endpoints";
 import {
   adaptBaseline,
@@ -37,9 +42,10 @@ export default function IncidentDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("evidence");
-  const [selectedChannel, setSelectedChannel] = useState("#prod-engineering");
 
   const incidentQuery = useApiResource(({ signal }) => getIncident(id, { signal }), [id]);
+  const reportQuery = useIncidentReport(id);
+  const slackTicketQuery = useIncidentSlackTicket(id);
 
   // The evidence window is a second, heavier read (it hits ClickHouse), so it is kept
   // separate: the incident header still renders when telemetry history is unavailable.
@@ -84,6 +90,7 @@ export default function IncidentDetailPage() {
     { key: "events", label: "K8s Events", icon: ScrollText },
     { key: "metrics", label: "Metrics", icon: Activity },
     { key: "baselines", label: "Baselines", icon: Gauge },
+    { key: "report", label: "Technical Report", icon: FileText },
   ];
 
   return (
@@ -97,6 +104,8 @@ export default function IncidentDetailPage() {
               onClick={() => {
                 incidentQuery.refetch();
                 evidenceQuery.refetch();
+                reportQuery.refetch();
+                slackTicketQuery.refetch();
               }}
               className="flex items-center gap-2 border border-gray-200 text-gray-600 hover:bg-gray-50 text-sm font-semibold px-3 py-1.5 rounded-lg"
             >
@@ -154,33 +163,10 @@ export default function IncidentDetailPage() {
           </div>
         </div>
 
-        {/* Header */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-          <div className="flex items-center gap-3 mb-1 flex-wrap">
-            <h1 className="text-lg font-bold text-gray-900">{incident.title}</h1>
-            <StatusPill status={incident.severity} />
-            <StatusPill status={incident.status} />
-            <span className="text-[10px] font-bold text-gray-500 bg-gray-100 border border-gray-200 px-2 py-0.5 rounded-full uppercase tracking-wider">
-              {incident.classificationLabel}
-            </span>
-          </div>
-          <p className="text-sm text-gray-600 mb-4">{incident.summary}</p>
-          <div className="grid grid-cols-5 gap-6">
-            <Field label="Primary resource" value={incident.service} mono />
-            <Field label="Cluster / namespace" value={`${incident.clusterId} / ${incident.namespace ?? "—"}`} />
-            <Field label="Impact" value={incident.impact} />
-            <Field label="Elapsed" value={incident.elapsedTime} mono />
-            <Field label="Confidence" value={`${incident.confidence}%`} />
-          </div>
-          <div className="grid grid-cols-3 gap-6 mt-4 pt-4 border-t border-gray-100">
-            <Field label="First seen" value={formatTimestamp(incident.firstSeen)} />
-            <Field label="Last seen" value={formatTimestamp(incident.lastSeen)} />
-            <Field label="Resolved" value={incident.resolvedAt ? formatTimestamp(incident.resolvedAt) : "—"} />
-          </div>
-        </div>
+        <IncidentHeader incident={incident} report={reportQuery.data} />
 
-        <div className="grid grid-cols-3 gap-5 items-start">
-          <div className="col-span-2 space-y-4">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 items-start">
+          <div className="xl:col-span-2 space-y-4 min-w-0">
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
               <div className="flex border-b border-gray-100 bg-gray-50/40 overflow-x-auto">
                 {tabs.map((tab) => (
@@ -200,21 +186,23 @@ export default function IncidentDetailPage() {
               </div>
 
               <div className="p-5">
-                {activeTab === "evidence" && <EvidenceTab incident={incident} />}
+                {activeTab === "evidence" && <EvidenceTab incident={incident} timeline={reportQuery.data?.timeline} />}
                 {activeTab === "logs" && <LogsTab query={evidenceQuery} />}
                 {activeTab === "events" && <EventsTab query={evidenceQuery} />}
                 {activeTab === "metrics" && <MetricsTab query={evidenceQuery} />}
                 {activeTab === "baselines" && <BaselinesTab incident={incident} />}
+                {activeTab === "report" && <IncidentTechnicalReport query={reportQuery} incidentId={id} />}
               </div>
             </div>
           </div>
 
           {/* Side rail */}
           <div className="space-y-4">
+            <SlackTicketStatus query={slackTicketQuery} />
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
               <h3 className="text-sm font-bold text-gray-900 mb-1">Remediation</h3>
               <p className="text-[11px] text-gray-400 mb-3">
-                The API is read-only today — these actions have no endpoint yet and are disabled.
+                Automated remediation has no API endpoint yet and remains disabled.
               </p>
 
               <div className="border border-gray-100 rounded-lg p-3 mb-3 opacity-60">
@@ -235,30 +223,6 @@ export default function IncidentDetailPage() {
                 </button>
               </div>
 
-              <div className="border border-gray-100 rounded-lg p-3 opacity-60">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <User size={14} className="text-gray-600" />
-                  <span className="text-sm font-semibold text-gray-900">Escalate to Developer</span>
-                </div>
-                <select
-                  value={selectedChannel}
-                  onChange={(event) => setSelectedChannel(event.target.value)}
-                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 mb-2 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option>#prod-engineering</option>
-                  <option>#platform-team</option>
-                  <option>#infrastructure</option>
-                  <option>#sre-oncall</option>
-                </select>
-                <button
-                  type="button"
-                  disabled
-                  title="No API endpoint for escalation yet"
-                  className="w-full border border-blue-200 text-blue-600 bg-blue-50 text-sm font-semibold py-2 rounded-lg cursor-not-allowed"
-                >
-                  💬 Create Slack Ticket
-                </button>
-              </div>
             </div>
 
             {/* Affected resources, straight from the incident */}
@@ -315,23 +279,12 @@ export default function IncidentDetailPage() {
   );
 }
 
-function Field({ label, value, mono = false }) {
-  return (
-    <div className="min-w-0">
-      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{label}</p>
-      <p className={`text-sm font-semibold text-gray-900 mt-1 truncate ${mono ? "font-mono" : ""}`} title={value}>
-        {value}
-      </p>
-    </div>
-  );
-}
-
 /**
  * Structured evidence stored with the incident in PostgreSQL — the entries that made
  * Faultline call this an incident, with the anomaly and source each came from.
  */
-function EvidenceTab({ incident }) {
-  const timeline = incident.timeline;
+function EvidenceTab({ incident, timeline: reportTimeline }) {
+  const timeline = reportTimeline ?? incident.timeline;
   return (
     <div className="space-y-5">
       <section>
@@ -373,25 +326,7 @@ function EvidenceTab({ incident }) {
 
       <section>
         <h3 className="text-sm font-bold text-gray-900 mb-3">Incident Timeline</h3>
-        {timeline.length === 0 ? (
-          <EmptyState title="No timeline entries" />
-        ) : (
-          <ol className="border-l-2 border-gray-100 ml-2">
-            {timeline.map((entry) => (
-              <li key={entry.id} className="relative pl-5 pb-4 last:pb-0">
-                <span className="absolute -left-[7px] top-1 w-3 h-3 rounded-full bg-blue-500 border-2 border-white" />
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                    {entry.type.replace(/_/g, " ")}
-                  </span>
-                  <span className="text-[10px] text-gray-400">{formatTimestamp(entry.timestamp)}</span>
-                  <StatusPill status={entry.severity} />
-                </div>
-                <p className="text-sm text-gray-700 mt-1">{entry.summary}</p>
-              </li>
-            ))}
-          </ol>
-        )}
+        <IncidentTimeline entries={timeline} />
       </section>
     </div>
   );

@@ -8,8 +8,9 @@
  * the thrown error rather than collapsed into a message.
  */
 
-const BASE_URL = (import.meta.env.VITE_API_BASE_URL || "/api").replace(/\/+$/, "");
-const TIMEOUT_MS = Number(import.meta.env.VITE_API_TIMEOUT_MS || 20000);
+const ENV = import.meta.env ?? {};
+const BASE_URL = (ENV.VITE_API_BASE_URL || "/api").replace(/\/+$/, "");
+const TIMEOUT_MS = Number(ENV.VITE_API_TIMEOUT_MS || 20000);
 
 export class ApiError extends Error {
   constructor(message, { status = 0, url, body, cause } = {}) {
@@ -76,7 +77,7 @@ function errorMessage(body, response) {
   return `Request failed with status ${response.status}`;
 }
 
-export async function apiGet(path, params, { signal } = {}) {
+async function request(path, params, { signal, accept = "application/json" } = {}) {
   const url = `${BASE_URL}${path}${buildQuery(params)}`;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -87,7 +88,7 @@ export async function apiGet(path, params, { signal } = {}) {
   try {
     response = await fetch(url, {
       method: "GET",
-      headers: { Accept: "application/json" },
+      headers: { Accept: accept },
       signal: controller.signal,
     });
   } catch (cause) {
@@ -104,15 +105,54 @@ export async function apiGet(path, params, { signal } = {}) {
     signal?.removeEventListener("abort", onAbort);
   }
 
-  const body = await readBody(response);
   if (!response.ok) {
+    const body = await readBody(response);
     throw new ApiError(errorMessage(body, response), {
       status: response.status,
       url,
       body,
     });
   }
-  return body;
+  return response;
+}
+
+export async function apiGet(path, params, options) {
+  return readBody(await request(path, params, options));
+}
+
+/**
+ * Reads a successful response as a browser Blob while retaining download metadata.
+ * Error bodies still use the same ApiError normalization as JSON requests.
+ */
+export async function apiGetBlob(path, params, options) {
+  const response = await request(path, params, {
+    ...options,
+    accept: options?.accept ?? "application/octet-stream",
+  });
+  return {
+    blob: await response.blob(),
+    contentType: response.headers.get("content-type") ?? "application/octet-stream",
+    filename: filenameFromDisposition(response.headers.get("content-disposition")),
+  };
+}
+
+/** Extracts and decodes RFC 5987 or quoted Content-Disposition filenames. */
+export function filenameFromDisposition(disposition) {
+  if (!disposition) return null;
+  const encoded = disposition.match(/filename\*\s*=\s*UTF-8''([^;]+)/i)?.[1];
+  const plain = disposition.match(/filename\s*=\s*(?:"([^"]+)"|([^;]+))/i);
+  const value = encoded ? decodeFilename(encoded) : plain?.[1] ?? plain?.[2]?.trim();
+  if (!value) return null;
+  // A response filename is a label, never a client-side path.
+  return value.split(/[\\/]/).at(-1) || null;
+}
+
+function decodeFilename(value) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
 }
 
 export const apiBaseUrl = BASE_URL;

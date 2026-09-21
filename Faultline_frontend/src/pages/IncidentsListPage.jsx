@@ -7,7 +7,7 @@ import { AsyncSection, StaleBanner } from "../components/ui/AsyncState";
 import { useApiResource, livePollMs } from "../hooks/useApiResource";
 import { listIncidents, INCIDENT_STATUSES, INCIDENT_SEVERITIES, INCIDENT_CLASSIFICATIONS } from "../api/endpoints";
 import { adaptIncident, classificationLabel, formatAge, severityRank } from "../api/adapters";
-import { useProject } from "../context/ProjectContext";
+import { useProject } from "../context/useProject";
 
 export default function IncidentsListPage() {
   const navigate = useNavigate();

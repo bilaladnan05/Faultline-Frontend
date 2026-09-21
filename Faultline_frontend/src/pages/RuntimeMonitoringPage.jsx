@@ -8,7 +8,7 @@ import { getReadiness, searchKubernetesEvents, searchLogs, LOG_SEVERITIES } from
 import { adaptKubernetesEvent, adaptLogRecord, formatTimestamp } from "../api/adapters";
 import { EVENT_RANGES, findRange, windowEndingNow } from "../api/window";
 import { apiBaseUrl } from "../api/client";
-import { useProject } from "../context/ProjectContext";
+import { useProject } from "../context/useProject";
 
 const LEVEL_STYLE = {
   INFO: "text-blue-400",

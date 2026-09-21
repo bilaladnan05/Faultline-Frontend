@@ -6,7 +6,7 @@ import { AsyncSection, StaleBanner } from "../components/ui/AsyncState";
 import { useApiResource, livePollMs } from "../hooks/useApiResource";
 import { listIncidents } from "../api/endpoints";
 import { classificationLabel, formatTimestamp, sourceLabel, titleCase } from "../api/adapters";
-import { useProject } from "../context/ProjectContext";
+import { useProject } from "../context/useProject";
 
 /**
  * The ledger is every incident's timeline entries, merged and ordered newest first.
