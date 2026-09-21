@@ -33,7 +33,62 @@ export const logout = (options) => apiPost("/auth/logout", undefined, options);
 /** The identity behind the current token, re-read by the API from storage. */
 export const getCurrentUser = (options) => apiGet("/auth/me", undefined, options);
 
-/* --------------------------------------------------------------- projects */
+/* ---------------------------------------------------------------- billing */
+
+/**
+ * Public: the plans the landing page and /subscribe render.
+ *
+ * `auth: false` because the purchaser has no account yet - that is the entire point
+ * of this flow, and sending a stale token would be meaningless.
+ */
+export const listPlans = (options) =>
+  apiGet("/billing/plans", undefined, { ...options, auth: false });
+
+/**
+ * Public: opens a hosted checkout and returns the URL to send the browser to.
+ *
+ * Nothing is created by this call. The account is provisioned only when the payment
+ * provider tells the backend, over a signed webhook, that money actually moved.
+ */
+export const createCheckout = (purchase, options) =>
+  apiPost(
+    "/billing/checkout",
+    {
+      email: purchase.email,
+      plan: purchase.plan,
+      fullName: purchase.fullName,
+      username: purchase.username,
+    },
+    { ...options, auth: false },
+  );
+
+/**
+ * What the signed-in account's plan unlocks.
+ *
+ * `{ plan, planName, enforced, features: [{id,label}], locked: [{id,label,requiredPlan}] }`.
+ * The console uses it to decide what to offer; the API enforces the same decision on
+ * every gated route, so hiding a module here is courtesy, never the control.
+ *
+ * `enforced: false` means the deployment sells nothing and withholds nothing - treat
+ * every module as available rather than inferring a tier.
+ */
+export const getEntitlements = (options) =>
+  apiGet("/billing/entitlements", undefined, options);
+
+/** Public: what the return page reports. Never carries credentials. */
+export const getCheckoutStatus = (sessionId, options) =>
+  apiGet("/billing/checkout/status", { sessionId }, { ...options, auth: false });
+
+/**
+ * Replaces the caller's own password.
+ *
+ * Reachable while the account is confined - it is the way out - and afterwards for
+ * ordinary password changes. Returns a refreshed session.
+ */
+export const changePassword = (currentPassword, newPassword, options) =>
+  apiPost("/auth/change-password", { currentPassword, newPassword }, options);
+
+/* ---------------------------------------------------------------- projects */
 
 /**
  * The projects the caller may see.

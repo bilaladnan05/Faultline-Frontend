@@ -580,3 +580,199 @@
 @media (prefers-reduced-motion: reduce) {
   .fl-landing * { animation: none !important; transition: none !important; }
 }
+
+/* ---------------------------------------------------------------------------
+   Public form surfaces: /subscribe and the payment return pages.
+
+   The landing page had no inputs, so these are additions rather than overrides.
+   Scoped under .fl-landing like everything else here, so they cannot leak into
+   the authenticated console, which has its own Tailwind styling.
+   --------------------------------------------------------------------------- */
+.fl-landing .brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: var(--accent);
+  color: #fff;
+  margin-right: 8px;
+}
+
+.fl-landing .panel-body { padding: 18px 16px; }
+
+.fl-landing .field { margin-bottom: 14px; }
+.fl-landing .field > label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.fl-landing .field .hint {
+  margin: 6px 0 0;
+  font-size: 0.75rem;
+  color: var(--fg-muted);
+  line-height: 1.45;
+}
+
+.fl-landing input[type="text"],
+.fl-landing input[type="email"],
+.fl-landing input[type="password"] {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.9rem;
+}
+.fl-landing input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-color: transparent;
+}
+.fl-landing input[aria-invalid="true"] { border-color: #ef4444; }
+
+.fl-landing .check {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 16px 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+.fl-landing .check input { margin-top: 3px; flex-shrink: 0; }
+
+.fl-landing .btn.full { width: 100%; justify-content: center; }
+.fl-landing .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.fl-landing .notice {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+.fl-landing .notice svg { flex-shrink: 0; margin-top: 2px; }
+.fl-landing .notice.bad {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+.fl-landing .notice.good {
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.35);
+}
+.fl-landing .notice.warn {
+  background: rgba(234, 179, 8, 0.1);
+  border: 1px solid rgba(234, 179, 8, 0.35);
+}
+
+.fl-landing .price {
+  margin: 0 0 14px;
+  font-size: 2.1rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.fl-landing .price .unit {
+  font-size: 0.95rem;
+  font-weight: 400;
+  color: var(--fg-muted);
+}
+
+/* ---------- pricing tiers (subscribe page) ---------- */
+.fl-landing .tiers {
+  margin: 44px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  align-items: stretch;
+  text-align: left;
+}
+.fl-landing .tiers-note { margin-top: 44px; }
+.fl-landing .tier {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 22px 18px 18px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-elev);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.fl-landing .tier:hover { border-color: var(--fg-faint); }
+/* The chosen tier is the one the form below belongs to, so it is stated, not implied. */
+.fl-landing .tier.is-active {
+  border-color: var(--accent);
+  background: linear-gradient(180deg, var(--accent-dim), transparent 120px), var(--bg-elev);
+}
+.fl-landing .tier-flag {
+  position: absolute;
+  top: -9px;
+  left: 18px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #000;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+}
+.fl-landing .tier-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  margin-bottom: 12px;
+  border: 1px solid var(--line);
+  background: var(--bg-raise);
+  color: var(--accent);
+}
+.fl-landing .tier-name {
+  margin: 0 0 2px;
+  font-size: var(--step-1);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.fl-landing .tier .price { margin: 0 0 6px; font-size: 1.9rem; }
+.fl-landing .tier-tagline {
+  margin: 0 0 16px;
+  font-size: var(--step--1);
+  color: var(--fg-muted);
+  line-height: 1.5;
+}
+/* Pushes every card's call to action onto the same line, whatever the feature count. */
+.fl-landing .tier .feature-list { flex: 1; margin-bottom: 18px; }
+.fl-landing .tier-cta { margin-top: auto; text-align: center; }
+.fl-landing span.tier-cta {
+  display: block;
+  padding: 10px 0 0;
+  border-top: 1px solid var(--line-soft);
+}
+
+/* The selector sits above the panels, so they need no extra gap of their own. */
+.fl-landing .tiers + .split { margin-top: 28px; }
+
+@media (max-width: 980px) {
+  .fl-landing .tiers { grid-template-columns: 1fr; }
+}
+.fl-landing .feature-list { list-style: none; padding: 0; margin: 0; }
+.fl-landing .feature-list li {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+}
+.fl-landing .feature-list svg { color: var(--accent); flex-shrink: 0; margin-top: 3px; }
+
+.fl-landing .narrow { max-width: 520px; margin-inline: auto; }

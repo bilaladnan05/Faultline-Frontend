@@ -237,8 +237,11 @@ export default function LandingPage() {
             <Link className="btn ghost" to="/login">
               Sign in
             </Link>
-            <Link className="btn btn-primary" to="/deployments">
-              Open the console
+            {/* The primary action for a visitor who has no account yet.
+                "Open the console" used to sit here, but it points into the
+                authenticated app and simply bounced them to the sign-in page. */}
+            <Link className="btn btn-primary" to="/subscribe">
+              Get started
             </Link>
           </div>
         </div>
@@ -265,8 +268,8 @@ export default function LandingPage() {
               single incident with a confidence score you can audit line by line.
             </p>
             <div className="hero-cta">
-              <Link className="btn btn-primary btn-lg" to="/deployments">
-                Open the console
+              <Link className="btn btn-primary btn-lg" to="/subscribe">
+                Subscribe now
               </Link>
               <a className="btn btn-lg" href="#pipeline">
                 See the pipeline
@@ -594,8 +597,8 @@ export default function LandingPage() {
               Run the whole pipeline locally, then point a real cluster at it.
             </p>
             <div className="hero-cta">
-              <Link className="btn btn-primary btn-lg" to="/deployments">
-                Open the console
+              <Link className="btn btn-primary btn-lg" to="/subscribe">
+                Subscribe now
               </Link>
               <a className="btn btn-lg" href="#pipeline">
                 Read the architecture
@@ -629,6 +632,7 @@ export default function LandingPage() {
             </div>
             <div className="foot-col">
               <strong>Start</strong>
+              <Link to="/subscribe">Subscribe</Link>
               <Link to="/login">Sign in</Link>
               <a href="#start">Onboarding</a>
               <a href="#start">Configuration</a>

@@ -40,6 +40,25 @@ export function RequireAuth({ children }) {
 }
 
 /**
+ * Holds an account that still owes a password change on the change-password screen.
+ *
+ * Wrapped around the whole authenticated shell rather than sprinkled over individual
+ * routes, so a page added later is covered without anyone remembering to cover it.
+ *
+ * As with every guard here, this is not the enforcement. An account in this state is
+ * refused by the API on every route but `/auth/me`, `/auth/logout` and
+ * `/auth/change-password`, so skipping this redirect buys a user nothing except a
+ * screen full of 403s. What it buys *us* is that the user is told what to do.
+ */
+export function RequirePasswordChanged({ children }) {
+  const { isAuthenticated, mustChangePassword, loading } = useAuth();
+  if (loading) return <Verifying />;
+  if (isAuthenticated && mustChangePassword)
+    return <Navigate to="/change-password" replace />;
+  return children;
+}
+
+/**
  * Restricts a subtree to the listed roles.
  *
  * Renders the forbidden page rather than redirecting to the dashboard: a user who typed

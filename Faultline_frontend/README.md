@@ -65,6 +65,29 @@ Navigation is filtered the same way: each item in `Sidebar.jsx` declares the per
 it needs, so an Onsite Engineer sees My Projects, My Incidents and Remediation, and no
 administration links at all.
 
+## Buying a subscription (public)
+
+The landing page's primary call to action is **Get started / Subscribe now**, which
+goes to `/subscribe`. That page, and the `/payment/success` and `/payment/cancel`
+pages it returns to, are fully public — the purchaser has no account yet, because
+creating one is what buying does.
+
+Card details are never collected here: the form opens a hosted Stripe Checkout and
+hands the browser over. The account is created only when Stripe tells the backend, over
+a signed webhook, that the payment settled — a browser landing on `/payment/success`
+proves nothing and creates nothing.
+
+The purchaser is emailed a username and a temporary password. When they sign in,
+`mustChangePassword` is true, so `RequirePasswordChanged` holds them on
+`/change-password` and the API refuses every other route until they choose a password.
+See `faultline-backend/docs/SUBSCRIPTIONS.md`.
+
+| Page | Route | Who |
+|---|---|---|
+| `SubscribePage` | `/subscribe` | anyone |
+| `PaymentReturnPage` | `/payment/success`, `/payment/cancel` | anyone |
+| `ChangePasswordPage` | `/change-password` | any signed-in user; forced when confined |
+
 ## How the frontend talks to the API
 
 All network code lives in `src/api/`:

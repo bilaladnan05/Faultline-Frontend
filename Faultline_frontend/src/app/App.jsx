@@ -18,11 +18,19 @@ import AlertsPage from "../pages/AlertsPage";
 import DeploymentsPage from "../pages/DeploymentsPage";
 import SettingsPage from "../pages/SettingsPage";
 import ForbiddenPage from "../pages/ForbiddenPage";
+import SubscribePage from "../pages/SubscribePage";
+import PaymentReturnPage from "../pages/PaymentReturnPage";
+import ChangePasswordPage from "../pages/ChangePasswordPage";
 import AdminUsersPage from "../pages/admin/AdminUsersPage";
 import AdminAuditPage from "../pages/admin/AdminAuditPage";
 import { ProjectProvider, useProject } from "../context/ProjectContext";
 import { AuthProvider, useAuth } from "../auth/AuthContext";
-import { RequireAuth, RequireProjectAccess, RequireRole } from "../auth/guards";
+import {
+  RequireAuth,
+  RequirePasswordChanged,
+  RequireProjectAccess,
+  RequireRole,
+} from "../auth/guards";
 import { ROLES } from "../auth/roles";
 
 /**
@@ -83,11 +91,38 @@ function AppRoutes() {
       />
       <Route path="/mfa" element={<MFAPage />} />
 
+      {/* Buying a subscription is how an account comes to exist, so none of this can
+          sit behind authentication. `PublicOnly` is not applied either: an existing
+          customer may legitimately buy a second subscription. */}
+      <Route path="/subscribe" element={<SubscribePage />} />
+      <Route
+        path="/payment/success"
+        element={<PaymentReturnPage outcome="success" />}
+      />
+      <Route path="/payment/cancel" element={<PaymentReturnPage outcome="cancel" />} />
+
+      {/* Authenticated, but outside the shell: this is the one screen an account with
+          a temporary password may reach, and it must not render the sidebar that links
+          to everything it cannot open. */}
+      <Route
+        path="/change-password"
+        element={
+          <RequireAuth>
+            <ChangePasswordPage />
+          </RequireAuth>
+        }
+      />
+
       {/* Authenticated app shell — a pathless layout route, so "/" stays public */}
       <Route
         element={
           <RequireAuth>
-            <AppLayout />
+            {/* Everything inside the shell is closed to an account that still owes a
+                password change. Wrapping the layout rather than each route means a
+                page added later is covered without anyone remembering to cover it. */}
+            <RequirePasswordChanged>
+              <AppLayout />
+            </RequirePasswordChanged>
           </RequireAuth>
         }
       >

@@ -1,6 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { clearToken, setToken, setUnauthorizedHandler } from "../api/client";
-import { getCurrentUser, login as loginRequest, logout as logoutRequest } from "../api/endpoints";
+import {
+  changePassword as changePasswordRequest,
+  getCurrentUser,
+  login as loginRequest,
+  logout as logoutRequest,
+} from "../api/endpoints";
 import { hasPermission, hasProjectAccess, hasRole, isAdmin } from "./roles";
 
 const AuthContext = createContext(null);
@@ -109,6 +114,22 @@ export function AuthProvider({ children }) {
     return session.user;
   }, []);
 
+  /**
+   * Replaces the password and, for a provisioned admin, ends the confinement.
+   *
+   * The refreshed session the API returns is adopted here rather than re-fetching:
+   * `mustChangePassword` flips in the same response, so the guards release on the very
+   * next render instead of after a round trip.
+   */
+  const changePassword = useCallback(async (currentPassword, newPassword) => {
+    const refreshed = await changePasswordRequest(currentPassword, newPassword);
+    setToken(refreshed.accessToken);
+    setTokenState(refreshed.accessToken);
+    setUser(refreshed.user);
+    persist(refreshed.accessToken, refreshed.user);
+    return refreshed.user;
+  }, []);
+
   const signOutRemote = useCallback(async () => {
     // Best effort: the audit record matters, but a failed call must not strand the
     // user in a session they asked to leave.
@@ -126,14 +147,22 @@ export function AuthProvider({ children }) {
       token,
       loading,
       isAuthenticated: !!token && !!user,
+      /**
+       * The account holds a temporary password it has not replaced.
+       *
+       * Used to route the user to the change-password screen. It is a convenience: the
+       * API refuses every other route for such an account regardless of what this says.
+       */
+      mustChangePassword: user?.mustChangePassword === true,
       signIn,
       signOut: signOutRemote,
+      changePassword,
       isAdmin: isAdmin(user),
       hasRole: (...roles) => hasRole(user, ...roles),
       can: (permission) => hasPermission(user, permission),
       canAccessProject: (projectId) => hasProjectAccess(user, projectId),
     }),
-    [user, token, loading, signIn, signOutRemote],
+    [user, token, loading, signIn, signOutRemote, changePassword],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
