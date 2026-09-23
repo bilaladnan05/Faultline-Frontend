@@ -1,11 +1,11 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Server, RefreshCw, ShieldAlert, Boxes } from "lucide-react";
+import { Server, RefreshCw, ShieldAlert, Boxes } from "lucide-react";
 import TopBar from "../components/layout/TopBar";
 import { AsyncSection, StaleBanner } from "../components/ui/AsyncState";
 import { useApiResource } from "../hooks/useApiResource";
-import { getReadiness, getSystemInfo, listIncidents } from "../api/endpoints";
-import { clustersFromIncidents, formatAge } from "../api/adapters";
+import { getReadiness, getSystemInfo, listClusters } from "../api/endpoints";
+import { formatAge } from "../api/adapters";
 import { useProject } from "../context/ProjectContext";
 
 const STATUS_STYLE = {
@@ -14,50 +14,24 @@ const STATUS_STYLE = {
   disconnected: { label: "Unknown", dot: "bg-gray-400", text: "text-gray-500", border: "border-l-gray-400" },
 };
 
-/** Clusters added by ID persist locally: the API has no cluster registry to write to. */
-const PINNED_KEY = "fl_pinned_clusters";
-
-function readPinned() {
-  try {
-    const raw = localStorage.getItem(PINNED_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
 export default function DeploymentsPage() {
   const navigate = useNavigate();
   const { setActiveProject } = useProject();
-  const [pinned, setPinned] = useState(readPinned);
-  const [newCluster, setNewCluster] = useState("");
 
-  // Every incident, unfiltered: the cluster list is derived from what they reference.
-  const incidents = useApiResource(({ signal }) => listIncidents({}, { signal }), []);
+  const registered = useApiResource(({ signal }) => listClusters({ signal }), []);
   const readiness = useApiResource(({ signal }) => getReadiness({ signal }), []);
   const system = useApiResource(({ signal }) => getSystemInfo({ signal }), []);
 
   const clusters = useMemo(() => {
-    const discovered = clustersFromIncidents(incidents.data ?? []);
-    const known = new Set(discovered.map((cluster) => cluster.clusterId));
-    const extra = pinned
-      .filter((id) => !known.has(id))
-      .map((id) => ({
-        id,
-        clusterId: id,
-        name: id,
-        env: "CLUSTER",
-        region: id,
-        namespaces: [],
-        total: 0,
-        open: 0,
-        critical: 0,
-        lastSeen: null,
-        status: "connected",
-        pinned: true,
-      }));
-    return [...discovered, ...extra];
-  }, [incidents.data, pinned]);
+    return (registered.data ?? []).map((cluster) => ({
+      ...cluster,
+      clusterId: cluster.id,
+      env: "CLUSTER",
+      region: cluster.kubernetesContext ?? cluster.id,
+      namespaces: cluster.workloadNamespace ? [cluster.workloadNamespace] : [],
+      status: cluster.open > 0 ? "degraded" : "connected",
+    }));
+  }, [registered.data]);
 
   const open = useCallback(
     (cluster, path) => {
@@ -73,16 +47,6 @@ export default function DeploymentsPage() {
     },
     [navigate, setActiveProject],
   );
-
-  const addCluster = (event) => {
-    event.preventDefault();
-    const id = newCluster.trim();
-    if (!id) return;
-    const next = [...new Set([...pinned, id])];
-    setPinned(next);
-    localStorage.setItem(PINNED_KEY, JSON.stringify(next));
-    setNewCluster("");
-  };
 
   const summary = {
     connected: clusters.filter((c) => c.status === "connected").length,
@@ -103,12 +67,12 @@ export default function DeploymentsPage() {
           <button
             type="button"
             onClick={() => {
-              incidents.refetch();
+              registered.refetch();
               readiness.refetch();
             }}
             className="flex items-center gap-2 border border-gray-200 text-gray-600 hover:bg-gray-50 text-sm font-semibold px-4 py-1.5 rounded-lg transition-colors"
           >
-            <RefreshCw size={14} className={incidents.refreshing ? "animate-spin" : ""} /> Refresh
+            <RefreshCw size={14} className={registered.refreshing ? "animate-spin" : ""} /> Refresh
           </button>
         }
       />
@@ -117,8 +81,7 @@ export default function DeploymentsPage() {
         <div>
           <h1 className="text-xl font-bold text-gray-900">Monitored Clusters</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Clusters Faultline has observed, discovered from the incidents the API has recorded. Select one to open its
-            workspace.
+            Clusters explicitly registered by onboarding. Select one to open its monitored workspace.
           </p>
         </div>
 
@@ -172,7 +135,7 @@ export default function DeploymentsPage() {
           </div>
         </div>
 
-        <StaleBanner error={incidents.data ? incidents.error : null} onRetry={incidents.refetch} />
+        <StaleBanner error={registered.data ? registered.error : null} onRetry={registered.refetch} />
 
         <div className="flex items-center gap-4 flex-wrap">
           {["connected", "degraded"].map((key) => (
@@ -183,32 +146,18 @@ export default function DeploymentsPage() {
               </span>
             </div>
           ))}
-          <form onSubmit={addCluster} className="ml-auto flex items-center gap-2">
-            <input
-              value={newCluster}
-              onChange={(event) => setNewCluster(event.target.value)}
-              placeholder="Open a cluster by ID…"
-              className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white w-56 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-400"
-            />
-            <button
-              type="submit"
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-3 py-1.5 rounded-lg transition-colors"
-            >
-              <Plus size={14} /> Add
-            </button>
-          </form>
         </div>
 
         <AsyncSection
-          loading={incidents.loading}
-          error={incidents.error}
-          data={incidents.data}
-          onRetry={incidents.refetch}
+          loading={registered.loading}
+          error={registered.error}
+          data={registered.data}
+          onRetry={registered.refetch}
           loadingLabel="Discovering clusters…"
           isEmpty={() => clusters.length === 0}
           emptyIcon={Boxes}
           emptyTitle="No clusters observed yet"
-          emptyHint="Faultline derives this list from recorded incidents. Once telemetry is ingested and an incident is opened, its cluster appears here — or open a cluster directly by entering its ID above."
+          emptyHint="Run the cluster onboarding command to register a monitored Kubernetes cluster."
         >
           <div className="grid grid-cols-2 gap-4">
             {clusters.map((cluster) => {
@@ -281,10 +230,10 @@ export default function DeploymentsPage() {
           </div>
         </AsyncSection>
 
-        {incidents.data && clusters.length > 0 && (
+        {registered.data && clusters.length > 0 && (
           <p className="flex items-center gap-1.5 text-xs text-gray-400">
             <ShieldAlert size={12} />
-            Cluster list is derived from recorded incidents; the API exposes no cluster registry.
+            Cluster identity and monitored namespace come from the onboarding registry.
           </p>
         )}
       </div>

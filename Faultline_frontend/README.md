@@ -62,7 +62,7 @@ screen, and an in-flight request is aborted when its inputs change or the view u
 
 | Page | Endpoints |
 | --- | --- |
-| Deployments | `GET /incidents` (cluster discovery), `/health/ready`, `/system/info` |
+| Deployments | `GET /clusters`, `/health/ready`, `/system/info` |
 | Dashboard | `GET /incidents`, `/telemetry/metrics`, `/health/ready` |
 | Incidents | `GET /incidents` with `cluster`/`namespace`/`status`/`severity`/`classification` |
 | Incident detail | `GET /incidents/:id`, `/incidents/:id/evidence`, `/baselines` |
@@ -78,6 +78,6 @@ labelled in the UI where they appear: PR issuance (diff, CI checks, submission),
 Integrations, Team & Roles, Subscription, Voice Agent, Settings, login/MFA, and the
 code-quality / Slack / stored-report sections of Reports.
 
-There is also no cluster registry in the API, so **Deployments** derives its cluster list
-from the clusters that recorded incidents reference. A cluster with no incidents yet can be
-opened by entering its ID in the "Open a cluster by ID" box.
+**Deployments** reads the backend cluster registry populated by onboarding. This keeps
+cluster identity and monitored namespaces visible even when a healthy cluster has no
+incidents.

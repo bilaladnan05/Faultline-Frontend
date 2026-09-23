@@ -17,6 +17,9 @@ export const getReadiness = (options) => apiGet("/health/ready", undefined, opti
 
 export const getSystemInfo = (options) => apiGet("/system/info", undefined, options);
 
+/** Clusters explicitly registered by the onboarding process. */
+export const listClusters = (options) => apiGet("/clusters", undefined, options);
+
 /* ------------------------------------------------------------- incidents */
 
 /**
