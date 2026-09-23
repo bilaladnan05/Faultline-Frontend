@@ -7,6 +7,19 @@
  */
 import { apiGet } from "./client";
 
+// Reporting remains in its own contract-focused module, but is re-exported here so
+// consumers keep using the app's established one-stop endpoint surface.
+export {
+  exportIncidentReport,
+  getIncidentAnalytics,
+  getIncidentReport,
+  getIncidentSlackTicket,
+  getIncidentTrends,
+  getSystemSummary,
+  INCIDENT_TREND_BUCKETS,
+  REPORT_EXPORT_FORMATS,
+} from "./reporting.js";
+
 /* ---------------------------------------------------------------- system */
 
 /** Liveness. Reports the process itself, never its dependencies. */

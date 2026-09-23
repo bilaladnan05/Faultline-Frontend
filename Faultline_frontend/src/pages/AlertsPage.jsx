@@ -7,7 +7,7 @@ import { AsyncSection, StaleBanner } from "../components/ui/AsyncState";
 import { useApiResource, livePollMs } from "../hooks/useApiResource";
 import { listIncidents, INCIDENT_SEVERITIES } from "../api/endpoints";
 import { adaptIncident, formatAge, formatTimestamp, severityRank, sourceLabel } from "../api/adapters";
-import { useProject } from "../context/ProjectContext";
+import { useProject } from "../context/useProject";
 
 const FILTERS = ["all", ...INCIDENT_SEVERITIES];
 

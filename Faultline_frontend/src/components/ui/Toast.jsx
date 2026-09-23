@@ -1,19 +1,17 @@
 import { useState, useEffect } from "react";
 import { CheckCircle, X } from "lucide-react";
-
-let _show;
-export function showToast(msg) { _show?.(msg); }
+import { setToastHandler } from "../../utils/toast";
 
 export default function ToastContainer() {
   const [toasts, setToasts] = useState([]);
 
   useEffect(() => {
-    _show = (msg) => {
+    setToastHandler((msg) => {
       const id = Date.now();
       setToasts((t) => [...t, { id, msg }]);
       setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3500);
-    };
-    return () => { _show = null; };
+    });
+    return () => setToastHandler(null);
   }, []);
 
   return (

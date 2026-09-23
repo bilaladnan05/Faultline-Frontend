@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Users, Shield, Clock, ChevronDown } from "lucide-react";
 import TopBar from "../components/layout/TopBar";
 import Avatar from "../components/ui/Avatar";
-import { showToast } from "../components/ui/Toast";
+import { showToast } from "../utils/toast";
 import { users, nonRepudiationLog } from "../mocks/users";
 
 const ROLE_STYLES = {
