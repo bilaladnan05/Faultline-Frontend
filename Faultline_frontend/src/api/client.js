@@ -1,15 +1,43 @@
 /**
  * HTTP client for the Faultline API (faultline-backend/apps/api).
  *
- * Every backend read is a plain GET with query-string filters, so this layer only needs
- * URL building, a timeout, and error normalisation. The API distinguishes its failures
- * by status — 400 bad filter, 403 cluster outside scope, 404 missing, 503 storage
- * unavailable — and callers render different things for each, so the status is kept on
- * the thrown error rather than collapsed into a message.
+ * Every request carries the bearer token the session holds, and the API decides what it
+ * may see. The status codes this layer distinguishes are the ones the API uses to say
+ * different things, and callers render different things for each, so the status is kept
+ * on the thrown error rather than collapsed into a message:
+ *
+ *   400 bad filter          401 not signed in, or the session no longer opens anything
+ *   403 outside your role or your project assignments
+ *   404 no such thing - or, for a resource whose existence is itself private, no such
+ *       thing as far as you are concerned
+ *   409 refused because of a conflict   503 a dependency behind the endpoint is down
  */
 
 const BASE_URL = (import.meta.env.VITE_API_BASE_URL || "/api").replace(/\/+$/, "");
 const TIMEOUT_MS = Number(import.meta.env.VITE_API_TIMEOUT_MS || 20000);
+
+/**
+ * The token every request is signed with.
+ *
+ * Held in a module variable rather than read from storage per request: the auth context
+ * owns the session and pushes it here, so there is one writer and no chance of a stale
+ * copy being picked up mid-flight.
+ */
+let accessToken = null;
+let onUnauthorized = null;
+
+export function setToken(token) {
+  accessToken = token || null;
+}
+
+export function clearToken() {
+  accessToken = null;
+}
+
+/** Registered by the auth context, so a 401 anywhere ends the session once. */
+export function setUnauthorizedHandler(handler) {
+  onUnauthorized = handler;
+}
 
 export class ApiError extends Error {
   constructor(message, { status = 0, url, body, cause } = {}) {
@@ -35,7 +63,20 @@ export class ApiError extends Error {
     return this.status === 404;
   }
 
-  /** A filter the API rejected, or a cluster outside the configured query scope. */
+  get isUnauthenticated() {
+    return this.status === 401;
+  }
+
+  /** The caller is known, but this project or action is not theirs. */
+  get isForbidden() {
+    return this.status === 403;
+  }
+
+  get isConflict() {
+    return this.status === 409;
+  }
+
+  /** A filter the API rejected, or a cluster outside the caller's scope. */
   get isBadRequest() {
     return this.status === 400 || this.status === 403;
   }
@@ -76,7 +117,7 @@ function errorMessage(body, response) {
   return `Request failed with status ${response.status}`;
 }
 
-export async function apiGet(path, params, { signal } = {}) {
+async function request(method, path, { params, body, signal, auth = true } = {}) {
   const url = `${BASE_URL}${path}${buildQuery(params)}`;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -86,8 +127,13 @@ export async function apiGet(path, params, { signal } = {}) {
   let response;
   try {
     response = await fetch(url, {
-      method: "GET",
-      headers: { Accept: "application/json" },
+      method,
+      headers: {
+        Accept: "application/json",
+        ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+        ...(auth && accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
+      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
       signal: controller.signal,
     });
   } catch (cause) {
@@ -104,15 +150,32 @@ export async function apiGet(path, params, { signal } = {}) {
     signal?.removeEventListener("abort", onAbort);
   }
 
-  const body = await readBody(response);
+  const payload = await readBody(response);
   if (!response.ok) {
-    throw new ApiError(errorMessage(body, response), {
+    // A 401 means this session no longer opens anything, wherever it happened. The
+    // handler ends it once, centrally, instead of every screen having to notice.
+    if (response.status === 401 && auth) onUnauthorized?.();
+    throw new ApiError(errorMessage(payload, response), {
       status: response.status,
       url,
-      body,
+      body: payload,
     });
   }
-  return body;
+  return payload;
 }
+
+export const apiGet = (path, params, options = {}) =>
+  request("GET", path, { ...options, params });
+
+export const apiPost = (path, body, options = {}) =>
+  request("POST", path, { ...options, body: body ?? {} });
+
+export const apiPatch = (path, body, options = {}) =>
+  request("PATCH", path, { ...options, body: body ?? {} });
+
+export const apiPut = (path, body, options = {}) =>
+  request("PUT", path, { ...options, body: body ?? {} });
+
+export const apiDelete = (path, options = {}) => request("DELETE", path, options);
 
 export const apiBaseUrl = BASE_URL;
