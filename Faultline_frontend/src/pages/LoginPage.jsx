@@ -1,24 +1,52 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Zap, Eye, EyeOff, AlertCircle } from "lucide-react";
+import { useAuth } from "../auth/AuthContext";
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { signIn } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  /**
+   * Signs in against the API.
+   *
+   * The API answers one message for every failure - wrong password, unknown account,
+   * disabled user - so this shows what it returned rather than inventing a more
+   * specific one, which would hand an attacker the distinction the API withholds.
+   */
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    if (!email || !password) { setError("Please fill in all fields."); return; }
+    if (!email || !password) {
+      setError("Please fill in all fields.");
+      return;
+    }
     setLoading(true);
-    setTimeout(() => {
+    try {
+      await signIn(email, password);
+      // Resume whatever they were trying to reach before being sent here.
+      navigate(location.state?.from?.pathname ?? "/projects", { replace: true });
+    } catch (caught) {
+      // 503 is how the API reports "a second factor is required but none is wired",
+      // which is an operator problem and needs saying differently from a bad password.
+      setError(
+        caught?.status === 503
+          ? caught.message
+          : caught?.status === 401
+            ? caught.message
+            : caught?.isNetwork
+              ? "Cannot reach the Faultline API. Is the backend running?"
+              : caught?.message || "Sign in failed.",
+      );
+    } finally {
       setLoading(false);
-      navigate("/mfa", { state: { email } });
-    }, 800);
+    }
   };
 
   return (
@@ -97,13 +125,13 @@ export default function LoginPage() {
           </form>
 
           <div className="mt-4 pt-4 border-t border-gray-100 text-center">
-            <p className="text-xs text-gray-400">Demo credentials: any email + any password</p>
+            <p className="text-xs text-gray-400">{"Use the account an administrator created for you."}</p>
           </div>
         </div>
 
         <div className="mt-4 flex items-center justify-center gap-2">
           <span className="w-2 h-2 bg-green-500 rounded-full" />
-          <span className="text-xs text-gray-500">Secured with MFA · Air University FYP Demo</span>
+          <span className="text-xs text-gray-500">Role-based access · Air University FYP</span>
         </div>
       </div>
     </div>

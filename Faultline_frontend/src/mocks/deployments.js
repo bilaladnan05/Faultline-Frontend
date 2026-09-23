@@ -1,0 +1,38 @@
+export const deployedServices = [
+  {
+    id: 1,
+    name: "Auth Service",
+    env: "PRODUCTION",
+    status: "connected",
+    region: "US-East",
+    wsEndpoints: "4 Active",
+    icon: "shield",
+  },
+  {
+    id: 2,
+    name: "Payment Gateway",
+    env: "STAGING",
+    status: "connected",
+    region: "EU-Central",
+    wsEndpoints: "2 Active",
+    icon: "credit-card",
+  },
+  {
+    id: 3,
+    name: "User Data API",
+    env: "PRODUCTION",
+    status: "disconnected",
+    region: "US-West",
+    wsEndpoints: "0 Active",
+    icon: "database",
+  },
+  {
+    id: 4,
+    name: "Push Notifications",
+    env: "STAGING",
+    status: "degraded",
+    region: "AP-South",
+    wsEndpoints: "1/3 Active",
+    icon: "bell",
+  },
+];

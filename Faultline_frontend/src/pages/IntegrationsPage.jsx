@@ -2,7 +2,7 @@ import { Plus, Shield, CreditCard, Database, Bell, GitBranch, Wifi } from "lucid
 import TopBar from "../components/layout/TopBar";
 import StatusPill from "../components/ui/StatusPill";
 import { integrations } from "../mocks/integrations";
-import { showToast } from "../components/ui/Toast";
+import { showToast } from "../utils/toast";
 
 const ICONS = {
   shield: Shield,
