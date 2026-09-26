@@ -247,6 +247,12 @@ export const listEscalationPolicies = (options) =>
   apiGet("/escalation-policies", undefined, options);
 export const listOnCallSchedules = (options) =>
   apiGet("/on-call/schedules", undefined, options);
+export const getSlackIntegration = (options) =>
+  apiGet("/integrations/slack", undefined, options);
+export const createSlackIntegration = (body, options) =>
+  apiPost("/integrations/slack", body, options);
+export const updateSlackIntegration = (body, options) =>
+  apiPatch("/integrations/slack", body, options);
 
 /** Windows and severities the API accepts, for building filter controls. */
 export const BASELINE_WINDOWS = ["1h", "6h", "24h", "7d"];
