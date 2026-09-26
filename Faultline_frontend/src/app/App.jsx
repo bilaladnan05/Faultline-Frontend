@@ -1,9 +1,9 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "../auth/AuthContext";
-import { RequireAuth, RequirePasswordChanged } from "../auth/guards";
+import { RequireAuth, RequirePasswordChanged, RequireRole } from "../auth/guards";
+import { ROLES } from "../auth/roles";
 import AppLayout from "../components/layout/AppLayout";
 import AlertsPage from "../pages/AlertsPage";
-import DashboardPage from "../pages/DashboardPage";
 import DeploymentsPage from "../pages/DeploymentsPage";
 import IncidentDetailPage from "../pages/IncidentDetailPage";
 import IncidentsListPage from "../pages/IncidentsListPage";
@@ -21,6 +21,7 @@ import LandingPage from "../pages/LandingPage";
 import LoginPage from "../pages/LoginPage";
 import PaymentReturnPage from "../pages/PaymentReturnPage";
 import SubscribePage from "../pages/SubscribePage";
+import ClusterOnboardingPage from "../pages/ClusterOnboardingPage";
 
 export default function App() {
   return (
@@ -47,7 +48,6 @@ export default function App() {
                 </RequireAuth>
               }
             />
-
             <Route
               element={
                 <RequireAuth>
@@ -57,7 +57,15 @@ export default function App() {
                 </RequireAuth>
               }
             >
-              <Route path="dashboard" element={<DashboardPage />} />
+              <Route
+                path="onboarding"
+                element={
+                  <RequireRole roles={[ROLES.ADMIN]}>
+                    <ClusterOnboardingPage />
+                  </RequireRole>
+                }
+              />
+              <Route path="dashboard" element={<Navigate to="/deployments" replace />} />
               <Route path="incidents" element={<IncidentsListPage />} />
               <Route path="incidents/:id" element={<IncidentDetailPage />} />
               <Route path="incidents/:id/pr" element={<PRIssuancePage />} />
@@ -70,7 +78,7 @@ export default function App() {
               <Route path="voice-agent" element={<VoiceAgentPage />} />
               <Route path="team" element={<TeamRolesPage />} />
               <Route path="forbidden" element={<ForbiddenPage />} />
-              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+              <Route path="*" element={<Navigate to="/deployments" replace />} />
             </Route>
           </Routes>
         </ProjectProvider>

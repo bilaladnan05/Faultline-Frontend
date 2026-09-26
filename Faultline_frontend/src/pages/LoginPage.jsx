@@ -1,11 +1,10 @@
 import { useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Zap, Eye, EyeOff, AlertCircle } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const location = useLocation();
   const { signIn } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -29,9 +28,12 @@ export default function LoginPage() {
     }
     setLoading(true);
     try {
-      await signIn(email, password);
-      // Resume whatever they were trying to reach before being sent here.
-      navigate(location.state?.from?.pathname ?? "/dashboard", { replace: true });
+      const user = await signIn(email, password);
+      // Clusters is the authenticated entry point. It decides whether this user
+      // sees their registered clusters or the first-cluster onboarding screen.
+      navigate(user?.mustChangePassword ? "/change-password" : "/deployments", {
+        replace: true,
+      });
     } catch (caught) {
       // 503 is how the API reports "a second factor is required but none is wired",
       // which is an operator problem and needs saying differently from a bad password.

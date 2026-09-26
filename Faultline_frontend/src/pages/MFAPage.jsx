@@ -32,7 +32,7 @@ export default function MFAPage() {
     setLoading(true);
     setTimeout(() => {
       sessionStorage.setItem("fl_auth", "ok");
-      navigate("/dashboard");
+      navigate("/deployments");
     }, 900);
   };
 

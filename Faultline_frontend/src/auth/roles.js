@@ -65,12 +65,11 @@ export function hasPermission(user, permission) {
 /**
  * Whether the UI should offer a project at all.
  *
- * `projectIds === null` means "not scoped by assignment" and is what the API sends for
- * an Admin - deliberately not an empty array, which means the opposite.
+ * Every role is scoped by the project IDs sent by the API. Role controls available
+ * actions; assignment controls which tenant's clusters those actions can reach.
  */
 export function hasProjectAccess(user, projectId) {
   if (!user || user.status !== "active") return false;
-  if (isAdmin(user)) return true;
   if (!projectId) return false;
   return (user.projectIds ?? []).includes(projectId);
 }

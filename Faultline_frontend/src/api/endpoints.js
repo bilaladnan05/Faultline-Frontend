@@ -5,7 +5,7 @@
  * `bucketMs`, on the metrics endpoint) so a rename on either side fails loudly instead
  * of silently dropping a filter.
  */
-import { apiGet, apiPatch, apiPost } from "./client";
+import { apiDelete, apiGet, apiPatch, apiPost } from "./client";
 
 // Reporting remains in its own contract-focused module, but is re-exported here so
 // consumers keep using the app's established one-stop endpoint surface.
@@ -70,6 +70,21 @@ export const getSystemInfo = (options) => apiGet("/system/info", undefined, opti
 
 /** Clusters explicitly registered by the onboarding process. */
 export const listClusters = (options) => apiGet("/clusters", undefined, options);
+
+/** Starts the server-side Kubernetes onboarding command and returns its background job. */
+export const startClusterOnboarding = (clusterName, controlPlaneIp, options) =>
+  apiPost("/cluster-onboarding", { clusterName, controlPlaneIp }, options);
+
+/** Reads progress emitted by the existing cluster:onboard script. */
+export const getClusterOnboarding = (id, options) =>
+  apiGet(`/cluster-onboarding/${encodeURIComponent(id)}`, undefined, options);
+
+/** Removes Faultline collectors and the owned cluster registration in the background. */
+export const startClusterUninstall = (clusterId, options) =>
+  apiDelete(
+    `/cluster-onboarding/clusters/${encodeURIComponent(clusterId)}`,
+    options,
+  );
 
 /* ------------------------------------------------------------- incidents */
 

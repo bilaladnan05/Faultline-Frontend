@@ -1,12 +1,20 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Server, RefreshCw, ShieldAlert, Boxes } from "lucide-react";
+import { Server, RefreshCw, ShieldAlert, Boxes, LoaderCircle, Trash2 } from "lucide-react";
 import TopBar from "../components/layout/TopBar";
 import { AsyncSection, StaleBanner } from "../components/ui/AsyncState";
 import { useApiResource } from "../hooks/useApiResource";
-import { getReadiness, getSystemInfo, listClusters } from "../api/endpoints";
+import {
+  getClusterOnboarding,
+  getReadiness,
+  getSystemInfo,
+  listClusters,
+  startClusterUninstall,
+} from "../api/endpoints";
 import { formatAge } from "../api/adapters";
 import { useProject } from "../context/useProject";
+import { useAuth } from "../auth/AuthContext";
+import ClusterOnboardingPage from "./ClusterOnboardingPage";
 
 const STATUS_STYLE = {
   connected: { label: "Healthy", dot: "bg-green-500", text: "text-green-600", border: "border-l-green-500" },
@@ -17,10 +25,46 @@ const STATUS_STYLE = {
 export default function DeploymentsPage() {
   const navigate = useNavigate();
   const { setActiveProject } = useProject();
+  const { isAdmin } = useAuth();
+  const [uninstallJob, setUninstallJob] = useState(null);
+  const [uninstallingClusterId, setUninstallingClusterId] = useState(null);
+  const [uninstallError, setUninstallError] = useState("");
 
   const registered = useApiResource(({ signal }) => listClusters({ signal }), []);
   const readiness = useApiResource(({ signal }) => getReadiness({ signal }), []);
   const system = useApiResource(({ signal }) => getSystemInfo({ signal }), []);
+  const refetchClusters = registered.refetch;
+
+  useEffect(() => {
+    if (!uninstallJob?.id || uninstallJob.status !== "running") return undefined;
+    const controller = new AbortController();
+    const timer = window.setInterval(async () => {
+      try {
+        const next = await getClusterOnboarding(uninstallJob.id, {
+          signal: controller.signal,
+        });
+        setUninstallJob(next);
+        if (next.status === "succeeded") {
+          setUninstallingClusterId(null);
+          setUninstallJob(null);
+          refetchClusters();
+        } else if (next.status === "failed") {
+          setUninstallingClusterId(null);
+          setUninstallError(next.error || "Cluster uninstall failed.");
+        }
+      } catch (caught) {
+        if (caught?.name !== "AbortError") {
+          setUninstallingClusterId(null);
+          setUninstallJob(null);
+          setUninstallError(caught?.message || "Could not read uninstall progress.");
+        }
+      }
+    }, 1500);
+    return () => {
+      controller.abort();
+      window.clearInterval(timer);
+    };
+  }, [refetchClusters, uninstallJob?.id, uninstallJob?.status]);
 
   const clusters = useMemo(() => {
     return (registered.data ?? []).map((cluster) => ({
@@ -48,6 +92,22 @@ export default function DeploymentsPage() {
     [navigate, setActiveProject],
   );
 
+  const uninstall = useCallback(async (cluster) => {
+    const confirmed = window.confirm(
+      `Uninstall Faultline from ${cluster.name}?\n\nThis removes Faultline collectors and its cluster registration. Your application workloads are not changed.`,
+    );
+    if (!confirmed) return;
+
+    setUninstallError("");
+    setUninstallingClusterId(cluster.clusterId);
+    try {
+      setUninstallJob(await startClusterUninstall(cluster.clusterId));
+    } catch (caught) {
+      setUninstallingClusterId(null);
+      setUninstallError(caught?.message || "Cluster uninstall could not be started.");
+    }
+  }, []);
+
   const summary = {
     connected: clusters.filter((c) => c.status === "connected").length,
     degraded: clusters.filter((c) => c.status === "degraded").length,
@@ -59,10 +119,16 @@ export default function DeploymentsPage() {
   // 'ok' | 'degraded' (non-critical dependency down) | 'unavailable' (503 body).
   const readinessStatus = typeof health?.status === "string" ? health.status : "unavailable";
 
+  // The cluster registry is scoped to the signed-in user by the API. Only show
+  // onboarding after that request succeeds and confirms this admin owns no clusters.
+  if (registered.data && clusters.length === 0 && isAdmin) {
+    return <ClusterOnboardingPage onConnected={registered.refetch} showSkip={false} />;
+  }
+
   return (
     <div className="flex flex-col flex-1">
       <TopBar
-        breadcrumbs={["Deployments"]}
+        breadcrumbs={["Clusters"]}
         action={
           <button
             type="button"
@@ -136,6 +202,14 @@ export default function DeploymentsPage() {
         </div>
 
         <StaleBanner error={registered.data ? registered.error : null} onRetry={registered.refetch} />
+
+        {uninstallError && (
+          <div role="alert" className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">
+            <ShieldAlert size={15} className="shrink-0" />
+            <span className="flex-1">{uninstallError}</span>
+            <button type="button" onClick={() => setUninstallError("")} className="text-xs font-bold hover:underline">Dismiss</button>
+          </div>
+        )}
 
         <div className="flex items-center gap-4 flex-wrap">
           {["connected", "degraded"].map((key) => (
@@ -218,11 +292,25 @@ export default function DeploymentsPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => open(cluster, "/dashboard")}
+                      onClick={() => open(cluster, "/incidents")}
                       className="flex-1 bg-gray-900 text-white hover:bg-gray-800 text-sm font-semibold py-1.5 rounded-lg"
                     >
                       Manage
                     </button>
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => uninstall(cluster)}
+                        disabled={Boolean(uninstallingClusterId)}
+                        className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-red-200 py-1.5 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {uninstallingClusterId === cluster.clusterId ? (
+                          <><LoaderCircle size={13} className="animate-spin" /> Uninstalling…</>
+                        ) : (
+                          <><Trash2 size={13} /> Uninstall</>
+                        )}
+                      </button>
+                    )}
                   </div>
                 </article>
               );

@@ -1,14 +1,13 @@
 import { NavLink } from "react-router-dom";
 import {
-  LayoutDashboard, AlertTriangle, Bell, Monitor, BookOpen,
+  AlertTriangle, Bell, Monitor, BookOpen,
   BarChart2, Phone, Users, Server, Zap, Plug
 } from "lucide-react";
 
 const navItems = [
-  { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+  { to: "/deployments", icon: Server, label: "Clusters" },
   { to: "/incidents", icon: AlertTriangle, label: "Incidents" },
   { to: "/alerts", icon: Bell, label: "Alerts" },
-  { to: "/deployments", icon: Server, label: "Clusters" },
   { to: "/integrations", icon: Plug, label: "Integrations" },
   { to: "/runtime", icon: Monitor, label: "Runtime" },
   { to: "/ledger", icon: BookOpen, label: "Incident Ledger" },
