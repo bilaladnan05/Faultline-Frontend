@@ -47,7 +47,7 @@ export default function ChangePasswordPage() {
       await changePassword(form.current, form.next);
       // The context has already adopted the refreshed session, so the guards have
       // released by the time this navigation happens.
-      navigate("/projects", { replace: true });
+      navigate("/dashboard", { replace: true });
     } catch (caught) {
       setError(
         caught?.status === 401

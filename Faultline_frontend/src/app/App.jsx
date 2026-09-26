@@ -1,59 +1,80 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { AuthProvider } from "../auth/AuthContext";
+import { RequireAuth, RequirePasswordChanged } from "../auth/guards";
 import AppLayout from "../components/layout/AppLayout";
-import LoginPage from "../pages/LoginPage";
-import MFAPage from "../pages/MFAPage";
+import AlertsPage from "../pages/AlertsPage";
 import DashboardPage from "../pages/DashboardPage";
-import IncidentsListPage from "../pages/IncidentsListPage";
+import DeploymentsPage from "../pages/DeploymentsPage";
 import IncidentDetailPage from "../pages/IncidentDetailPage";
-import PRIssuancePage from "../pages/PRIssuancePage";
+import IncidentsListPage from "../pages/IncidentsListPage";
 import IntegrationsPage from "../pages/IntegrationsPage";
-import RuntimeMonitoringPage from "../pages/RuntimeMonitoringPage";
 import LedgerPage from "../pages/LedgerPage";
+import PRIssuancePage from "../pages/PRIssuancePage";
 import ReportingPage from "../pages/ReportingPage";
-import VoiceAgentPage from "../pages/VoiceAgentPage";
-import SubscriptionPage from "../pages/SubscriptionPage";
+import RuntimeMonitoringPage from "../pages/RuntimeMonitoringPage";
 import TeamRolesPage from "../pages/TeamRolesPage";
-
-function getAuth() {
-  return sessionStorage.getItem("fl_auth") === "ok";
-}
-
-function RequireAuth({ children }) {
-  return getAuth() ? children : <Navigate to="/login" replace />;
-}
+import VoiceAgentPage from "../pages/VoiceAgentPage";
+import { ProjectProvider } from "../context/ProjectContext";
+import ChangePasswordPage from "../pages/ChangePasswordPage";
+import ForbiddenPage from "../pages/ForbiddenPage";
+import LandingPage from "../pages/LandingPage";
+import LoginPage from "../pages/LoginPage";
+import PaymentReturnPage from "../pages/PaymentReturnPage";
+import SubscribePage from "../pages/SubscribePage";
 
 export default function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        {/* Public routes */}
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/mfa" element={<MFAPage />} />
+      <AuthProvider>
+        <ProjectProvider>
+          <Routes>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/subscribe" element={<SubscribePage />} />
+            <Route
+              path="/payment/success"
+              element={<PaymentReturnPage outcome="success" />}
+            />
+            <Route
+              path="/payment/cancel"
+              element={<PaymentReturnPage outcome="cancel" />}
+            />
+            <Route
+              path="/change-password"
+              element={
+                <RequireAuth>
+                  <ChangePasswordPage />
+                </RequireAuth>
+              }
+            />
 
-        {/* Authenticated app shell */}
-        <Route
-          path="/"
-          element={
-            <RequireAuth>
-              <AppLayout />
-            </RequireAuth>
-          }
-        >
-          <Route index element={<Navigate to="/dashboard" replace />} />
-          <Route path="dashboard" element={<DashboardPage />} />
-          <Route path="incidents" element={<IncidentsListPage />} />
-          <Route path="incidents/:id" element={<IncidentDetailPage />} />
-          <Route path="incidents/:id/pr" element={<PRIssuancePage />} />
-          <Route path="integrations" element={<IntegrationsPage />} />
-          <Route path="runtime" element={<RuntimeMonitoringPage />} />
-          <Route path="ledger" element={<LedgerPage />} />
-          <Route path="reporting" element={<ReportingPage />} />
-          <Route path="voice-agent" element={<VoiceAgentPage />} />
-          <Route path="subscription" element={<SubscriptionPage />} />
-          <Route path="team" element={<TeamRolesPage />} />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Route>
-      </Routes>
+            <Route
+              element={
+                <RequireAuth>
+                  <RequirePasswordChanged>
+                    <AppLayout />
+                  </RequirePasswordChanged>
+                </RequireAuth>
+              }
+            >
+              <Route path="dashboard" element={<DashboardPage />} />
+              <Route path="incidents" element={<IncidentsListPage />} />
+              <Route path="incidents/:id" element={<IncidentDetailPage />} />
+              <Route path="incidents/:id/pr" element={<PRIssuancePage />} />
+              <Route path="alerts" element={<AlertsPage />} />
+              <Route path="deployments" element={<DeploymentsPage />} />
+              <Route path="integrations" element={<IntegrationsPage />} />
+              <Route path="runtime" element={<RuntimeMonitoringPage />} />
+              <Route path="ledger" element={<LedgerPage />} />
+              <Route path="reporting" element={<ReportingPage />} />
+              <Route path="voice-agent" element={<VoiceAgentPage />} />
+              <Route path="team" element={<TeamRolesPage />} />
+              <Route path="forbidden" element={<ForbiddenPage />} />
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            </Route>
+          </Routes>
+        </ProjectProvider>
+      </AuthProvider>
     </BrowserRouter>
   );
 }

@@ -6,7 +6,7 @@ import { AsyncSection, StaleBanner } from "../components/ui/AsyncState";
 import { useApiResource } from "../hooks/useApiResource";
 import { getReadiness, getSystemInfo, listClusters } from "../api/endpoints";
 import { formatAge } from "../api/adapters";
-import { useProject } from "../context/ProjectContext";
+import { useProject } from "../context/useProject";
 
 const STATUS_STYLE = {
   connected: { label: "Healthy", dot: "bg-green-500", text: "text-green-600", border: "border-l-green-500" },

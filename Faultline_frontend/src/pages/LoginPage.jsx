@@ -31,7 +31,7 @@ export default function LoginPage() {
     try {
       await signIn(email, password);
       // Resume whatever they were trying to reach before being sent here.
-      navigate(location.state?.from?.pathname ?? "/projects", { replace: true });
+      navigate(location.state?.from?.pathname ?? "/dashboard", { replace: true });
     } catch (caught) {
       // 503 is how the API reports "a second factor is required but none is wired",
       // which is an operator problem and needs saying differently from a bad password.

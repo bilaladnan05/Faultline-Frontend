@@ -5,7 +5,7 @@
  * `bucketMs`, on the metrics endpoint) so a rename on either side fails loudly instead
  * of silently dropping a filter.
  */
-import { apiGet } from "./client";
+import { apiGet, apiPatch, apiPost } from "./client";
 
 // Reporting remains in its own contract-focused module, but is re-exported here so
 // consumers keep using the app's established one-stop endpoint surface.
@@ -19,6 +19,44 @@ export {
   INCIDENT_TREND_BUCKETS,
   REPORT_EXPORT_FORMATS,
 } from "./reporting.js";
+
+/* ---------------------------------------------------------- authentication */
+
+/** Exchanges credentials for the bearer token used by authenticated requests. */
+export const login = (email, password, options = {}) =>
+  apiPost("/auth/login", { email, password }, { ...options, auth: false });
+
+/** Revalidates the stored session and refreshes the user's current assignments. */
+export const getCurrentUser = (options) => apiGet("/auth/me", undefined, options);
+
+/** Records a best-effort logout before the auth context discards the local token. */
+export const logout = (options) => apiPost("/auth/logout", undefined, options);
+
+/** Changes the caller's password and returns the backend's refreshed session. */
+export const changePassword = (currentPassword, newPassword, options) =>
+  apiPost(
+    "/auth/change-password",
+    { currentPassword, newPassword },
+    options,
+  );
+
+/* --------------------------------------------------------------- billing */
+
+/** Public plan catalog rendered by the landing-page subscription flow. */
+export const listPlans = (options = {}) =>
+  apiGet("/billing/plans", undefined, { ...options, auth: false });
+
+/** Starts hosted checkout; account provisioning happens after signed payment. */
+export const createCheckout = (body, options = {}) =>
+  apiPost("/billing/checkout", body, { ...options, auth: false });
+
+/** Reads the payment provider's status without exposing account credentials. */
+export const getCheckoutStatus = (sessionId, options = {}) =>
+  apiGet(
+    "/billing/checkout/status",
+    { sessionId },
+    { ...options, auth: false },
+  );
 
 /* ---------------------------------------------------------------- system */
 
@@ -65,6 +103,15 @@ export const getIncidentEvidence = (id, { leadMs, trailMs, limit } = {}, options
     { leadMs, trailMs, limit },
     options,
   );
+
+export const acknowledgeIncident = (id, body = {}, options) =>
+  apiPost(`/incidents/${encodeURIComponent(id)}/acknowledge`, body, options);
+
+export const getIncidentCommunications = (id, options) =>
+  apiGet(`/incidents/${encodeURIComponent(id)}/communications`, undefined, options);
+
+export const getIncidentNotificationAttempts = (id, options) =>
+  apiGet(`/incidents/${encodeURIComponent(id)}/notification-attempts`, undefined, options);
 
 /* ------------------------------------------------------------- telemetry */
 
@@ -172,6 +219,19 @@ export const getBaseline = (resourceId, metricName, { window } = {}, options) =>
     { window },
     options,
   );
+
+/* --------------------------------------------------------- notifications */
+
+export const listContacts = (options) => apiGet("/contacts", undefined, options);
+export const createContact = (body, options) => apiPost("/contacts", body, options);
+export const updateContact = (id, body, options) =>
+  apiPatch(`/contacts/${encodeURIComponent(id)}`, body, options);
+export const listNotificationGroups = (options) =>
+  apiGet("/notification-groups", undefined, options);
+export const listEscalationPolicies = (options) =>
+  apiGet("/escalation-policies", undefined, options);
+export const listOnCallSchedules = (options) =>
+  apiGet("/on-call/schedules", undefined, options);
 
 /** Windows and severities the API accepts, for building filter controls. */
 export const BASELINE_WINDOWS = ["1h", "6h", "24h", "7d"];
