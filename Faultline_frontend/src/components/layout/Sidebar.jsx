@@ -1,11 +1,12 @@
 import { NavLink } from "react-router-dom";
 import {
   AlertTriangle, Bell, Monitor, BookOpen,
-  BarChart2, Phone, Users, Server, Zap, Plug
+  BarChart2, Phone, Users, Server, Zap, Plug, Network
 } from "lucide-react";
 
 const navItems = [
-  { to: "/deployments", icon: Server, label: "Clusters" },
+  { to: "/clusters", icon: Server, label: "Onboarded Clusters", end: true },
+  { to: "/clusters/onboarding", icon: Network, label: "Cluster Onboarding" },
   { to: "/incidents", icon: AlertTriangle, label: "Incidents" },
   { to: "/alerts", icon: Bell, label: "Alerts" },
   { to: "/integrations", icon: Plug, label: "Integrations" },
@@ -31,10 +32,11 @@ export default function Sidebar() {
       <nav className="flex-1 px-3 py-4 overflow-y-auto">
         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 mb-3">Main Menu</p>
         <ul className="space-y-0.5">
-          {navItems.map(({ to, icon: Icon, label }) => (
+          {navItems.map(({ to, icon: Icon, label, end }) => (
             <li key={to}>
               <NavLink
                 to={to}
+                end={end}
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                     isActive

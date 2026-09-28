@@ -58,19 +58,21 @@ export default function App() {
               }
             >
               <Route
-                path="onboarding"
+                path="clusters/onboarding"
                 element={
                   <RequireRole roles={[ROLES.ADMIN]}>
                     <ClusterOnboardingPage />
                   </RequireRole>
                 }
               />
-              <Route path="dashboard" element={<Navigate to="/deployments" replace />} />
+              <Route path="clusters" element={<DeploymentsPage />} />
+              <Route path="onboarding" element={<Navigate to="/clusters/onboarding" replace />} />
+              <Route path="deployments" element={<Navigate to="/clusters" replace />} />
+              <Route path="dashboard" element={<Navigate to="/clusters" replace />} />
               <Route path="incidents" element={<IncidentsListPage />} />
               <Route path="incidents/:id" element={<IncidentDetailPage />} />
               <Route path="incidents/:id/pr" element={<PRIssuancePage />} />
               <Route path="alerts" element={<AlertsPage />} />
-              <Route path="deployments" element={<DeploymentsPage />} />
               <Route path="integrations" element={<IntegrationsPage />} />
               <Route path="runtime" element={<RuntimeMonitoringPage />} />
               <Route path="ledger" element={<LedgerPage />} />
@@ -78,7 +80,7 @@ export default function App() {
               <Route path="voice-agent" element={<VoiceAgentPage />} />
               <Route path="team" element={<TeamRolesPage />} />
               <Route path="forbidden" element={<ForbiddenPage />} />
-              <Route path="*" element={<Navigate to="/deployments" replace />} />
+              <Route path="*" element={<Navigate to="/clusters" replace />} />
             </Route>
           </Routes>
         </ProjectProvider>

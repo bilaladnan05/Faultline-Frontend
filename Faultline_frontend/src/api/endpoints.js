@@ -5,7 +5,7 @@
  * `bucketMs`, on the metrics endpoint) so a rename on either side fails loudly instead
  * of silently dropping a filter.
  */
-import { apiDelete, apiGet, apiPatch, apiPost } from "./client";
+import { apiDelete, apiGet, apiPatch, apiPost } from "./client.js";
 
 // Reporting remains in its own contract-focused module, but is re-exported here so
 // consumers keep using the app's established one-stop endpoint surface.
@@ -70,6 +70,31 @@ export const getSystemInfo = (options) => apiGet("/system/info", undefined, opti
 
 /** Clusters explicitly registered by the onboarding process. */
 export const listClusters = (options) => apiGet("/clusters", undefined, options);
+export const getClusterSlackChannels = (id, options) =>
+  apiGet(
+    `/clusters/${encodeURIComponent(id)}/slack-channels`,
+    undefined,
+    options,
+  );
+export const updateClusterSlackMapping = (id, slackChannelId, options) =>
+  apiPatch(
+    `/clusters/${encodeURIComponent(id)}/slack-mapping`,
+    { slackChannelId },
+    options,
+  );
+export const getClusterSres = (id, options) =>
+  apiGet(`/clusters/${encodeURIComponent(id)}/sres`, undefined, options);
+export const assignClusterSre = (id, userId, options) =>
+  apiPost(
+    `/clusters/${encodeURIComponent(id)}/sres`,
+    { userId },
+    options,
+  );
+export const unassignClusterSre = (id, userId, options) =>
+  apiDelete(
+    `/clusters/${encodeURIComponent(id)}/sres/${encodeURIComponent(userId)}`,
+    options,
+  );
 
 /** Starts the server-side Kubernetes onboarding command and returns its background job. */
 export const startClusterOnboarding = (clusterName, controlPlaneIp, options) =>
@@ -243,8 +268,6 @@ export const updateContact = (id, body, options) =>
   apiPatch(`/contacts/${encodeURIComponent(id)}`, body, options);
 export const listNotificationGroups = (options) =>
   apiGet("/notification-groups", undefined, options);
-export const listEscalationPolicies = (options) =>
-  apiGet("/escalation-policies", undefined, options);
 export const listOnCallSchedules = (options) =>
   apiGet("/on-call/schedules", undefined, options);
 export const getSlackIntegration = (options) =>

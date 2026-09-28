@@ -29,9 +29,9 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const user = await signIn(email, password);
-      // Clusters is the authenticated entry point. It decides whether this user
-      // sees their registered clusters or the first-cluster onboarding screen.
-      navigate(user?.mustChangePassword ? "/change-password" : "/deployments", {
+      // The onboarded-clusters list is the authenticated entry point. Onboarding
+      // remains available as a separate route for adding more clusters.
+      navigate(user?.mustChangePassword ? "/change-password" : "/clusters", {
         replace: true,
       });
     } catch (caught) {

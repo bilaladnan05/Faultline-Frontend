@@ -27,20 +27,22 @@ test("the landing and registration flow remain publicly routable", () => {
 test("successful authentication enters the user-scoped clusters view", () => {
   const login = read("src/pages/LoginPage.jsx");
   const deployments = read("src/pages/DeploymentsPage.jsx");
-  assert.match(login, /navigate\(user\?\.mustChangePassword \? "\/change-password" : "\/deployments"/);
+  assert.match(login, /navigate\(user\?\.mustChangePassword \? "\/change-password" : "\/clusters"/);
   assert.doesNotMatch(login, /location\.state\?\.from/);
-  assert.match(read("src/app/App.jsx"), /path="\/?onboarding"/);
-  assert.match(deployments, /registered\.data && clusters\.length === 0 && isAdmin/);
-  assert.match(deployments, /<ClusterOnboardingPage onConnected=\{registered\.refetch\} showSkip=\{false\}/);
+  assert.match(read("src/app/App.jsx"), /path="clusters\/onboarding"/);
+  assert.doesNotMatch(deployments, /<ClusterOnboardingPage/);
+  assert.doesNotMatch(deployments, /clusters\.length === 0 && isAdmin/);
 });
 
 test("clusters replace dashboard as the authenticated landing tab", () => {
   const app = read("src/app/App.jsx");
   const sidebar = read("src/components/layout/Sidebar.jsx");
 
-  assert.match(app, /path="dashboard" element=\{<Navigate to="\/deployments" replace \/>\}/);
-  assert.match(app, /path="\*" element=\{<Navigate to="\/deployments" replace \/>\}/);
-  assert.match(sidebar, /to: "\/deployments"[\s\S]*label: "Clusters"/);
+  assert.match(app, /path="clusters" element=\{<DeploymentsPage \/>\}/);
+  assert.match(app, /path="dashboard" element=\{<Navigate to="\/clusters" replace \/>\}/);
+  assert.match(app, /path="\*" element=\{<Navigate to="\/clusters" replace \/>\}/);
+  assert.match(sidebar, /to: "\/clusters"[\s\S]*label: "Onboarded Clusters"/);
+  assert.match(sidebar, /to: "\/clusters\/onboarding"[\s\S]*label: "Cluster Onboarding"/);
   assert.doesNotMatch(sidebar, /label: "Dashboard"/);
 });
 
@@ -54,6 +56,15 @@ test("admins can start a confirmed cluster uninstall and follow its job", () => 
   assert.match(deployments, /startClusterUninstall\(cluster\.clusterId\)/);
   assert.match(deployments, /getClusterOnboarding\(uninstallJob\.id/);
   assert.match(deployments, /\{isAdmin && \(/);
+});
+
+test("cluster management exposes multi-select SRE call assignments to admins", () => {
+  const deployments = read("src/pages/DeploymentsPage.jsx");
+  assert.match(deployments, /isAdmin && clusters\.length > 0 && <AssignedSresModule/);
+  assert.match(deployments, /<h2[^>]*>Assigned SREs<\/h2>/);
+  assert.match(deployments, /<select multiple/);
+  assert.match(deployments, /assignClusterSre\(clusterId, id\)/);
+  assert.match(deployments, /unassignClusterSre\(clusterId, id\)/);
 });
 
 test("the auth context's endpoint functions remain available", () => {

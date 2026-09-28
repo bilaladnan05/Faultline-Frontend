@@ -1,20 +1,62 @@
 import { useEffect, useState } from "react";
-import { Boxes, CheckCircle2, Plus, Save, Trash2, XCircle } from "lucide-react";
-import { createSlackIntegration, getReadiness, getSlackIntegration, getSystemInfo, updateSlackIntegration } from "../api/endpoints";
+import { CheckCircle2, MessageSquare, Plus, Save, Trash2, XCircle } from "lucide-react";
+import { createSlackIntegration, getClusterSlackChannels, getSlackIntegration, listClusters, updateClusterSlackMapping, updateSlackIntegration } from "../api/endpoints";
 import TopBar from "../components/layout/TopBar";
-import { AsyncSection } from "../components/ui/AsyncState";
-import StatusPill from "../components/ui/StatusPill";
 import { useApiResource } from "../hooks/useApiResource";
 
 export default function IntegrationsPage() {
-  const system = useApiResource(({ signal }) => getSystemInfo({ signal }), []);
-  const readiness = useApiResource(({ signal }) => getReadiness({ signal }), []);
-  const components = system.data?.enabledComponents ?? [];
-  const checks = readiness.data?.checks ?? readiness.data?.dependencies ?? {};
-  return <div className="flex flex-col flex-1"><TopBar breadcrumbs={["Platform", "Integrations"]} /><main className="flex-1 overflow-y-auto p-6 space-y-5"><div><h1 className="text-xl font-bold text-gray-900">Backend Integrations</h1><p className="text-sm text-gray-500 mt-1">Configure organization integrations and inspect backend dependencies.</p></div><SlackIntegrationCard /><AsyncSection {...system} onRetry={system.refetch}><div className="grid grid-cols-1 lg:grid-cols-2 gap-5"><section className="bg-white border border-gray-200 rounded-xl shadow-sm p-5"><div className="flex items-center gap-2 mb-4"><Boxes size={16} className="text-blue-500" /><h2 className="text-sm font-bold text-gray-900">Enabled components</h2></div>{components.length ? <ul className="space-y-2">{components.map((component) => <li key={component} className="flex items-center gap-2 border border-gray-100 rounded-lg px-3 py-2 text-sm text-gray-700"><CheckCircle2 size={14} className="text-green-500" />{component}</li>)}</ul> : <p className="text-sm text-gray-500">No optional components are enabled.</p>}</section><section className="bg-white border border-gray-200 rounded-xl shadow-sm p-5"><div className="flex items-center justify-between mb-4"><h2 className="text-sm font-bold text-gray-900">Dependency readiness</h2><StatusPill status={readiness.data?.status ?? (readiness.error ? "UNHEALTHY" : "CHECKING")} /></div>{readiness.error && !readiness.data ? <button className="text-xs font-semibold text-blue-600" onClick={readiness.refetch}>Retry readiness check</button> : Object.keys(checks).length ? <ul className="space-y-2">{Object.entries(checks).map(([name, check]) => { const healthy = check === true || check === "ok" || check?.status === "healthy" || check?.status === "up"; return <li key={name} className="flex items-center gap-2 border border-gray-100 rounded-lg px-3 py-2 text-sm"><span className="capitalize flex-1 text-gray-700">{name}</span>{healthy ? <CheckCircle2 size={14} className="text-green-500" /> : <XCircle size={14} className="text-red-400" />}</li>; })}</ul> : <p className="text-sm text-gray-500">No individual dependency checks were returned.</p>}</section></div></AsyncSection></main></div>;
+  const [slackRevision, setSlackRevision] = useState(0);
+  return <div className="flex flex-col flex-1"><TopBar breadcrumbs={["Platform", "Integrations"]} /><main className="flex-1 overflow-y-auto p-6 space-y-5"><div><h1 className="text-xl font-bold text-gray-900">Backend Integrations</h1><p className="text-sm text-gray-500 mt-1">Configure organization Slack settings and cluster notification routing.</p></div><SlackIntegrationCard onChanged={() => setSlackRevision((value) => value + 1)} /><ClusterCommunicationsCard slackRevision={slackRevision} /></main></div>;
 }
 
-function SlackIntegrationCard() {
+function ClusterCommunicationsCard({ slackRevision }) {
+  const clusters = useApiResource(({ signal }) => listClusters({ signal }), []);
+  const [selectedId, setSelectedId] = useState("");
+  const activeId = selectedId || clusters.data?.[0]?.id || "";
+  const channelResource = useApiResource(
+    ({ signal }) => activeId
+      ? getClusterSlackChannels(activeId, { signal })
+      : Promise.resolve({ channels: [], mapping: null }),
+    [activeId, slackRevision],
+  );
+  const [drafts, setDrafts] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState(null);
+  const channelId = drafts[activeId] ?? channelResource.data?.mapping?.id ?? "";
+
+  const save = async () => {
+    setSaving(true); setMessage(null);
+    try {
+      const result = await updateClusterSlackMapping(activeId, channelId || null);
+      setMessage({ type: "success", text: result.mapping ? `Mapped to #${result.mapping.name}.` : "Slack channel mapping removed." });
+      setDrafts((current) => ({ ...current, [activeId]: result.mapping?.id ?? "" }));
+      await Promise.all([clusters.refetch(), channelResource.refetch()]);
+    } catch (error) { setMessage({ type: "error", text: error.message || "Could not save channel mapping." }); }
+    finally { setSaving(false); }
+  };
+
+  return <section className="bg-white border border-gray-200 rounded-xl shadow-sm p-5">
+    <div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600"><MessageSquare size={20} /></span><div><h2 className="text-sm font-bold text-gray-900">Cluster Communications</h2><p className="text-xs text-gray-500 mt-1">Route new incidents from each cluster to its dedicated Slack channel.</p></div></div>
+    {clusters.loading ? <p className="mt-5 text-sm text-gray-500">Loading clusters…</p> : clusters.error ? <div className="mt-5 text-sm text-red-600">{clusters.error.message}<button type="button" onClick={clusters.refetch} className="ml-2 font-semibold">Retry</button></div> : !clusters.data?.length ? <p className="mt-5 text-sm text-gray-500">Onboard a cluster before configuring its communications.</p> : <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-end">
+      <label className="text-xs font-semibold text-gray-700">Cluster<select value={activeId} onChange={(event) => { setSelectedId(event.target.value); setMessage(null); }} className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm">{clusters.data.map((cluster) => <option key={cluster.id} value={cluster.id}>{cluster.name} ({cluster.environment})</option>)}</select></label>
+      <label className="text-xs font-semibold text-gray-700">Slack channel<select value={channelId} disabled={channelResource.loading || saving} onChange={(event) => setDrafts((current) => ({ ...current, [activeId]: event.target.value }))} className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm disabled:bg-gray-100"><option value="">Use organization default</option>{channelResource.data?.mapping && !(channelResource.data.channels ?? []).some((channel) => channel.id === channelResource.data.mapping.id) && <option value={channelResource.data.mapping.id}>#{channelResource.data.mapping.name} (bot no longer has access)</option>}{(channelResource.data?.channels ?? []).map((channel) => <option key={channel.id} value={channel.id}>#{channel.name}{channel.isPrivate ? " (private)" : ""}</option>)}</select></label>
+      <button type="button" onClick={save} disabled={!activeId || channelResource.loading || saving} className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-gray-300"><Save size={15} />{saving ? "Saving…" : "Save mapping"}</button>
+    </div>}
+    {channelResource.loading && activeId && <p className="mt-3 text-xs text-gray-500">Loading available Slack channels…</p>}
+    {channelResource.error && <div className="mt-3 text-sm text-red-600">{channelResource.error.message}<button type="button" onClick={channelResource.refetch} className="ml-2 font-semibold text-blue-600 hover:underline">Retry</button></div>}
+    {message && <p className={`mt-3 text-sm ${message.type === "success" ? "text-green-600" : "text-red-600"}`}>{message.text}</p>}
+    <p className="mt-3 text-xs text-gray-500">Only channels the Slack bot has joined are available. Invite the bot in Slack, then reload this page to map another channel.</p>
+    {clusters.data?.length > 0 && <div className="mt-5 overflow-hidden rounded-lg border border-gray-200">
+      <div className="border-b border-gray-200 bg-gray-50 px-4 py-3"><h3 className="text-xs font-bold uppercase tracking-wider text-gray-500">Current cluster routing</h3></div>
+      <div className="overflow-x-auto"><table className="w-full text-left text-sm">
+        <thead className="border-b border-gray-200 bg-white text-xs uppercase tracking-wider text-gray-500"><tr><th className="px-4 py-3 font-semibold">Cluster</th><th className="px-4 py-3 font-semibold">Environment</th><th className="px-4 py-3 font-semibold">Slack channel</th><th className="px-4 py-3 font-semibold">Routing</th></tr></thead>
+        <tbody className="divide-y divide-gray-100">{clusters.data.map((cluster) => { const mapped = Boolean(cluster.slackChannelId); return <tr key={cluster.id} className="text-gray-700"><td className="px-4 py-3 font-semibold text-gray-900">{cluster.name}</td><td className="px-4 py-3">{cluster.environment || "—"}</td><td className="px-4 py-3">{mapped ? `#${cluster.slackChannelName || cluster.slackChannelId}` : "Organization default"}</td><td className="px-4 py-3"><span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${mapped ? "bg-blue-50 text-blue-700" : "bg-gray-100 text-gray-600"}`}>{mapped ? "Cluster-specific" : "Default"}</span></td></tr>; })}</tbody>
+      </table></div>
+    </div>}
+  </section>;
+}
+
+function SlackIntegrationCard({ onChanged }) {
   const resource = useApiResource(({ signal }) => getSlackIntegration({ signal }), []);
   const [enabled, setEnabled] = useState(false);
   const [token, setToken] = useState("");
@@ -39,7 +81,7 @@ function SlackIntegrationCard() {
     const payload = { slackEnabled: true, slackIncidentChannelId: channel.trim() || null, slackServiceChannels, ...(token.trim() ? { slackBotToken: token.trim() } : {}) };
     try {
       await (resource.data?.updatedAt ? updateSlackIntegration(payload) : createSlackIntegration(payload));
-      setToken(""); setMessage({ type: "success", text: "Slack configuration saved." }); await resource.refetch();
+      setToken(""); setMessage({ type: "success", text: "Slack configuration saved." }); await resource.refetch(); onChanged?.();
     } catch (error) { setMessage({ type: "error", text: error.message || "Could not save Slack configuration." }); }
     finally { setSaving(false); }
   };
@@ -48,7 +90,7 @@ function SlackIntegrationCard() {
     setEnabled(nextEnabled); setMessage(null);
     if (nextEnabled || !resource.data?.updatedAt) return;
     setSaving(true);
-    try { await updateSlackIntegration({ slackEnabled: false }); setMessage({ type: "success", text: "Slack integration disabled." }); await resource.refetch(); }
+    try { await updateSlackIntegration({ slackEnabled: false }); setMessage({ type: "success", text: "Slack integration disabled." }); await resource.refetch(); onChanged?.(); }
     catch (error) { setEnabled(true); setMessage({ type: "error", text: error.message || "Could not disable Slack integration." }); }
     finally { setSaving(false); }
   };
