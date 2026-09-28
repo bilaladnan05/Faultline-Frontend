@@ -34,6 +34,9 @@ const normalizePhone = (value) => value.trim().replace(/[\s()-]/g, "");
  *   - project assignments, which decide which clusters that account can see;
  *   - a notification contact linked by `userId`, which is the phone Retell calls.
  *
+ * The phone number is compulsory and voice is always on: the API creates the account and
+ * its contact in one request and refuses an engineer Retell could not call.
+ *
  * There is no delete: the API disables accounts instead, which keeps the audit trail
  * pointing at a real user. Disabling also drops the engineer from every cluster's SRE
  * list (a database trigger does that), which the confirmation says.
@@ -97,37 +100,29 @@ export default function OnsiteEngineersCard({ clusters }) {
     }
   };
 
-  /** Creates, updates or switches off the engineer's linked notification contact. */
-  const savePhone = async (userId, name, contact, { phone, voiceEnabled, smsEnabled }) => {
-    if (phone) {
-      const fields = { name, phoneNumber: phone, voiceEnabled, smsEnabled, enabled: true };
-      if (contact) await updateContact(contact.id, fields);
-      else await createContact({ ...fields, organizationId, userId, role: "ENGINEER" });
-    } else if (contact?.enabled) {
-      await updateContact(contact.id, { enabled: false });
-    }
+  /**
+   * Saves the engineer's linked notification contact, creating it for an engineer added
+   * before phone numbers were required. Voice is always on so Retell can call them.
+   */
+  const savePhone = async (userId, name, contact, { phone, smsEnabled }) => {
+    const fields = { name, phoneNumber: phone, voiceEnabled: true, smsEnabled, enabled: true };
+    if (contact) await updateContact(contact.id, fields);
+    else await createContact({ ...fields, organizationId, userId, role: "ENGINEER" });
   };
 
   const create = (values) =>
     run(
       "create",
-      async () => {
-        const created = await createUser({
+      () =>
+        createUser({
           email: values.email,
           name: values.name,
           role: ROLES.ONSITE_ENGINEER,
           password: values.password,
           projectIds: values.projectIds,
-        });
-        try {
-          await savePhone(created.id, values.name, null, values);
-        } catch (error) {
-          throw new Error(
-            `${values.email} was created, but the phone number was not saved (${error.message}). Edit the engineer to add it.`,
-            { cause: error },
-          );
-        }
-      },
+          phoneNumber: values.phone,
+          smsEnabled: values.smsEnabled,
+        }),
       `${values.email} was added.`,
     );
 
@@ -328,16 +323,18 @@ function EngineerRow({ engineer, contact, clusters, busy, locked, onEdit, onTogg
           <>
             <p className="font-mono text-xs text-gray-700">{phone.phoneNumber}</p>
             <div className="mt-1 flex flex-wrap gap-1">
-              {phone.voiceEnabled && <Channel icon={PhoneCall} label="Voice" />}
-              {phone.smsEnabled && <Channel icon={MessageSquareText} label="SMS" />}
-              {!phone.voiceEnabled && !phone.smsEnabled && (
-                <span className="text-[10px] font-semibold text-amber-700">Voice and SMS off</span>
+              {phone.voiceEnabled ? (
+                <Channel icon={PhoneCall} label="Voice" />
+              ) : (
+                <span className="text-[10px] font-semibold text-amber-700">Voice off, cannot be called</span>
               )}
+              {phone.smsEnabled && <Channel icon={MessageSquareText} label="SMS" />}
             </div>
           </>
         ) : (
+          // Only engineers added before the phone number was required end up here.
           <span className="inline-flex items-center gap-1 text-xs text-amber-700">
-            <PhoneOff size={12} /> No phone, cannot be called
+            <PhoneOff size={12} /> No phone, cannot be called. Edit to add one.
           </span>
         )}
       </td>
@@ -396,8 +393,7 @@ function EngineerForm({ engineer, contact, clusters, busy, onCancel, onSubmit })
     name: engineer?.name ?? "",
     email: engineer?.email ?? "",
     password: "",
-    phone: contact?.enabled ? contact.phoneNumber : "",
-    voiceEnabled: contact ? contact.voiceEnabled : true,
+    phone: contact?.phoneNumber ?? "",
     smsEnabled: contact ? contact.smsEnabled : true,
     projectIds: [],
   }));
@@ -424,7 +420,7 @@ function EngineerForm({ engineer, contact, clusters, busy, onCancel, onSubmit })
     Boolean(form.name.trim()) &&
     (editing || (EMAIL.test(form.email.trim()) && form.password.length >= MINIMUM_PASSWORD)) &&
     !passwordError &&
-    !phoneError;
+    E164.test(phone);
 
   const submit = (event) => {
     event.preventDefault();
@@ -434,7 +430,6 @@ function EngineerForm({ engineer, contact, clusters, busy, onCancel, onSubmit })
       email: form.email.trim(),
       password: form.password,
       phone,
-      voiceEnabled: form.voiceEnabled,
       smsEnabled: form.smsEnabled,
       projectIds: form.projectIds,
     });
@@ -494,11 +489,7 @@ function EngineerForm({ engineer, contact, clusters, busy, onCancel, onSubmit })
         <Field
           label="Phone number"
           error={phoneError}
-          hint={
-            editing && contact?.enabled
-              ? "Clearing it stops calls and SMS to this engineer."
-              : "Optional. Needed for incident calls and SMS."
-          }
+          hint="Required. Retell calls this number about incidents, so include the country code."
         >
           <input
             type="tel"
@@ -506,12 +497,13 @@ function EngineerForm({ engineer, contact, clusters, busy, onCancel, onSubmit })
             onChange={set("phone")}
             placeholder="+923001234567"
             autoComplete="off"
+            required
             className={inputClass}
           />
           <div className="mt-2 flex gap-4">
-            <label className="flex items-center gap-2 text-xs text-gray-700">
-              <input type="checkbox" checked={form.voiceEnabled} onChange={set("voiceEnabled")} disabled={!phone} />
-              Voice calls
+            <label className="flex items-center gap-2 text-xs text-gray-500" title="Required so Retell can call them">
+              <input type="checkbox" checked readOnly disabled />
+              Voice calls (always on)
             </label>
             <label className="flex items-center gap-2 text-xs text-gray-700">
               <input type="checkbox" checked={form.smsEnabled} onChange={set("smsEnabled")} disabled={!phone} />

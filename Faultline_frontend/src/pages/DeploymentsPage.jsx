@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Server, RefreshCw, ShieldAlert, Boxes, LoaderCircle, Trash2 } from "lucide-react";
 import TopBar from "../components/layout/TopBar";
 import { AsyncSection, StaleBanner } from "../components/ui/AsyncState";
+import UninstallClusterDialog from "../components/clusters/UninstallClusterDialog";
 import { useApiResource } from "../hooks/useApiResource";
 import {
   getClusterOnboarding,
@@ -30,6 +31,7 @@ export default function DeploymentsPage() {
   const [uninstallJob, setUninstallJob] = useState(null);
   const [uninstallingClusterId, setUninstallingClusterId] = useState(null);
   const [uninstallError, setUninstallError] = useState("");
+  const [confirmingUninstall, setConfirmingUninstall] = useState(null);
 
   const registered = useApiResource(({ signal }) => listClusters({ signal }), []);
   const readiness = useApiResource(({ signal }) => getReadiness({ signal }), []);
@@ -93,12 +95,11 @@ export default function DeploymentsPage() {
     [navigate, setActiveProject],
   );
 
-  const uninstall = useCallback(async (cluster) => {
-    const confirmed = window.confirm(
-      `Uninstall Faultline from ${cluster.name}?\n\nThis removes Faultline collectors and its cluster registration. Your application workloads are not changed.`,
-    );
-    if (!confirmed) return;
+  const cancelUninstall = useCallback(() => setConfirmingUninstall(null), []);
 
+  // Only reached from UninstallClusterDialog, after the admin has typed the cluster name.
+  const uninstall = useCallback(async (cluster) => {
+    setConfirmingUninstall(null);
     setUninstallError("");
     setUninstallingClusterId(cluster.clusterId);
     try {
@@ -301,7 +302,7 @@ export default function DeploymentsPage() {
                     {isAdmin && (
                       <button
                         type="button"
-                        onClick={() => uninstall(cluster)}
+                        onClick={() => setConfirmingUninstall(cluster)}
                         disabled={Boolean(uninstallingClusterId)}
                         className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-red-200 py-1.5 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                       >
@@ -326,6 +327,15 @@ export default function DeploymentsPage() {
           </p>
         )}
       </div>
+
+      {confirmingUninstall && (
+        <UninstallClusterDialog
+          key={confirmingUninstall.clusterId}
+          cluster={confirmingUninstall}
+          onCancel={cancelUninstall}
+          onConfirm={uninstall}
+        />
+      )}
     </div>
   );
 }

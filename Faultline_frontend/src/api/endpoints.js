@@ -123,7 +123,11 @@ export const startClusterUninstall = (clusterId, options) =>
 /** Admin only. Every account, with the project assignments the caller can see. */
 export const listUsers = (options) => apiGet("/admin/users", undefined, options);
 
-/** `projectIds` are granted in the same request, so a new engineer never sees nothing. */
+/**
+ * `projectIds` are granted in the same request, so a new engineer never sees nothing.
+ * An onsite engineer also needs `phoneNumber` (E.164, optional `smsEnabled`): the API
+ * links the voice-enabled contact Retell calls, and refuses the account without it.
+ */
 export const createUser = (user, options) => apiPost("/admin/users", user, options);
 
 /** Name, role, status and password; the API has no route that deletes a user. */

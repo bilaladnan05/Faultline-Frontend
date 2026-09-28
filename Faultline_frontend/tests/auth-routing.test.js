@@ -89,10 +89,19 @@ test("the sidebar shows who is signed in and lets them sign out", () => {
 test("admins can start a confirmed cluster uninstall and follow its job", () => {
   const endpoints = read("src/api/endpoints.js");
   const deployments = read("src/pages/DeploymentsPage.jsx");
+  const dialog = read("src/components/clusters/UninstallClusterDialog.jsx");
 
   assert.match(endpoints, /export const startClusterUninstall/);
   assert.match(endpoints, /apiDelete\([\s\S]*cluster-onboarding\/clusters/);
-  assert.match(deployments, /window\.confirm/);
+  // Confirmed in an in-app dialog by typing the cluster name, not a browser prompt.
+  assert.doesNotMatch(deployments, /window\.confirm/);
+  assert.match(deployments, /onClick=\{\(\) => setConfirmingUninstall\(cluster\)\}/);
+  assert.match(deployments, /<UninstallClusterDialog[\s\S]*onConfirm=\{uninstall\}/);
+  assert.match(dialog, /role="dialog"/);
+  assert.match(dialog, /aria-modal="true"/);
+  assert.match(dialog, /const matches = typed\.trim\(\) === name/);
+  assert.match(dialog, /disabled=\{!matches\}/);
+  assert.match(dialog, /if \(matches\) onConfirm\(cluster\)/);
   assert.match(deployments, /startClusterUninstall\(cluster\.clusterId\)/);
   assert.match(deployments, /getClusterOnboarding\(uninstallJob\.id/);
   assert.match(deployments, /\{isAdmin && \(/);

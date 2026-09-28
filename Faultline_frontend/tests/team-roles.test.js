@@ -34,7 +34,15 @@ test("user management endpoints hit the admin users routes", async () => {
   assert.equal(respond.last.url, "/api/admin/users");
   assert.equal(respond.last.options.method, "GET");
 
-  const engineer = { email: "a@b.io", name: "A", role: "onsiteengineer", password: "x".repeat(12), projectIds: ["booknest"] };
+  const engineer = {
+    email: "a@b.io",
+    name: "A",
+    role: "onsiteengineer",
+    password: "x".repeat(12),
+    projectIds: ["booknest"],
+    phoneNumber: "+923001234567",
+    smsEnabled: true,
+  };
   await createUser(engineer);
   assert.equal(respond.last.url, "/api/admin/users");
   assert.equal(respond.last.options.method, "POST");
@@ -99,4 +107,16 @@ test("engineer create, edit, access and disable go through the API", () => {
   // SRE resolver reads to place Retell calls.
   assert.match(card, /createContact\(\{ \.\.\.fields, organizationId, userId, role: "ENGINEER" \}\)/);
   assert.match(card, /window\.confirm/);
+});
+
+test("an engineer always has a callable phone number with voice on", () => {
+  const card = read("src/components/team/OnsiteEngineersCard.jsx");
+  // Sent with the account so the API creates both together, or neither.
+  assert.match(card, /createUser\(\{[\s\S]*?phoneNumber: values\.phone,[\s\S]*?\}\)/);
+  // The form cannot be submitted without a valid E.164 number, when adding or editing.
+  assert.match(card, /!passwordError &&\s*E164\.test\(phone\);/);
+  // Voice is fixed on; the old "clear the number to stop calls" path is gone.
+  assert.match(card, /voiceEnabled: true, smsEnabled, enabled: true/);
+  assert.match(card, /<input type="checkbox" checked readOnly disabled \/>/);
+  assert.doesNotMatch(card, /enabled: false|set\("voiceEnabled"\)/);
 });
