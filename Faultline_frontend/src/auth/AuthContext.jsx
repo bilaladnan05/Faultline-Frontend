@@ -4,9 +4,11 @@ import { clearToken, setToken, setUnauthorizedHandler } from "../api/client";
 import {
   changePassword as changePasswordRequest,
   getCurrentUser,
+  getEntitlements,
   login as loginRequest,
   logout as logoutRequest,
 } from "../api/endpoints";
+import { planIncludes } from "./plans";
 import { hasPermission, hasProjectAccess, hasRole, isAdmin } from "./roles";
 
 const AuthContext = createContext(null);
@@ -31,6 +33,18 @@ function readStored(key) {
   }
 }
 
+/**
+ * The account's tier, or null when it cannot be read. Null means "unknown", which the
+ * UI treats as "offer the page and let the API decide" rather than hiding everything.
+ */
+async function readEntitlements(signal) {
+  try {
+    return await getEntitlements({ signal });
+  } catch {
+    return null;
+  }
+}
+
 function persist(token, user) {
   try {
     if (token) sessionStorage.setItem(TOKEN_KEY, JSON.stringify(token));
@@ -46,6 +60,9 @@ function persist(token, user) {
 export function AuthProvider({ children }) {
   const [token, setTokenState] = useState(() => readStored(TOKEN_KEY));
   const [user, setUser] = useState(() => readStored(USER_KEY));
+  // Held in memory only: it is re-read with the identity on every load, so a plan
+  // change shows up on the next visit without anyone clearing storage.
+  const [entitlements, setEntitlements] = useState(null);
   // A stored session is unverified until `/auth/me` confirms it, so the first paint
   // waits rather than briefly showing an app the token may no longer open.
   const [loading, setLoading] = useState(() => !!readStored(TOKEN_KEY));
@@ -55,6 +72,7 @@ export function AuthProvider({ children }) {
     persist(null, null);
     setTokenState(null);
     setUser(null);
+    setEntitlements(null);
     if (reason) {
       try {
         sessionStorage.setItem("fl_signout_reason", reason);
@@ -84,10 +102,16 @@ export function AuthProvider({ children }) {
     const controller = new AbortController();
     setToken(token);
     getCurrentUser({ signal: controller.signal })
-      .then((fresh) => {
+      .then(async (fresh) => {
         if (cancelled) return;
         setUser(fresh);
         persist(token, fresh);
+        // The tier is read with the identity, so the first render already knows which
+        // modules to offer. An account that still owes a password change cannot read it
+        // yet; `changePassword` fetches it once the password is replaced.
+        if (fresh.mustChangePassword) return;
+        const granted = await readEntitlements(controller.signal);
+        if (!cancelled) setEntitlements(granted);
       })
       .catch((error) => {
         if (cancelled || error?.name === "AbortError") return;
@@ -108,6 +132,10 @@ export function AuthProvider({ children }) {
   const signIn = useCallback(async (email, password) => {
     const session = await loginRequest(email, password);
     setToken(session.accessToken);
+    // Before the session is adopted, so the first screen after sign-in is already
+    // drawn for the right tier rather than redrawn a moment later.
+    const granted = session.user?.mustChangePassword ? null : await readEntitlements();
+    setEntitlements(granted);
     setTokenState(session.accessToken);
     setUser(session.user);
     persist(session.accessToken, session.user);
@@ -125,6 +153,8 @@ export function AuthProvider({ children }) {
   const changePassword = useCallback(async (currentPassword, newPassword) => {
     const refreshed = await changePasswordRequest(currentPassword, newPassword);
     setToken(refreshed.accessToken);
+    // Readable only now that the confinement has lifted.
+    setEntitlements(await readEntitlements());
     setTokenState(refreshed.accessToken);
     setUser(refreshed.user);
     persist(refreshed.accessToken, refreshed.user);
@@ -162,8 +192,12 @@ export function AuthProvider({ children }) {
       hasRole: (...roles) => hasRole(user, ...roles),
       can: (permission) => hasPermission(user, permission),
       canAccessProject: (projectId) => hasProjectAccess(user, projectId),
+      /** The organization's tier as the API reports it; null until known. */
+      entitlements,
+      /** Whether the tier includes a module. A courtesy: the API enforces the same rule. */
+      hasFeature: (feature) => planIncludes(entitlements, feature),
     }),
-    [user, token, loading, signIn, signOutRemote, changePassword],
+    [user, token, loading, entitlements, signIn, signOutRemote, changePassword],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

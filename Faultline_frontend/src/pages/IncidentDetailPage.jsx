@@ -1,4 +1,4 @@
-import { ArrowLeft, FileText, ListTree, Radio } from "lucide-react";
+import { ArrowLeft, FileText, Radio } from "lucide-react";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { adaptIncident, classificationLabel, formatTimestamp, resourceLabel } from "../api/adapters";
@@ -7,7 +7,7 @@ import IncidentHeader from "../components/incidents/IncidentHeader";
 import IncidentTechnicalReport from "../components/incidents/IncidentTechnicalReport";
 import SlackTicketStatus from "../components/incidents/SlackTicketStatus";
 import TopBar from "../components/layout/TopBar";
-import { AsyncSection, EmptyState } from "../components/ui/AsyncState";
+import { AsyncSection } from "../components/ui/AsyncState";
 import StatusPill from "../components/ui/StatusPill";
 import { useApiResource } from "../hooks/useApiResource";
 import { useIncidentReport, useIncidentSlackTicket } from "../hooks/useReporting";
@@ -23,9 +23,9 @@ export default function IncidentDetailPage() {
   const incident = adaptIncident(incidentQuery.data);
 
   return <div className="flex flex-col flex-1">
-    <TopBar breadcrumbs={["Incidents", id ?? "Detail"]} />
+    <TopBar breadcrumbs={["Incident Ledger", id ?? "Detail"]} />
     <main className="flex-1 overflow-y-auto p-6 space-y-5">
-      <button onClick={() => navigate('/incidents')} className="flex items-center gap-1.5 text-sm text-blue-600 hover:underline font-medium"><ArrowLeft size={14} /> Back to incidents</button>
+      <button onClick={() => navigate('/ledger')} className="flex items-center gap-1.5 text-sm text-blue-600 hover:underline font-medium"><ArrowLeft size={14} /> Back to incident ledger</button>
       <AsyncSection {...incidentQuery} data={incident} onRetry={incidentQuery.refetch} loadingLabel="Loading incident…">
         {incident && <>
           <IncidentHeader incident={incident} report={reportQuery.data} />
@@ -33,12 +33,10 @@ export default function IncidentDetailPage() {
             <section className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
               <div className="flex border-b border-gray-100 bg-gray-50/50">
                 <Tab active={tab === 'evidence'} onClick={() => setTab('evidence')} icon={Radio}>Evidence</Tab>
-                <Tab active={tab === 'timeline'} onClick={() => setTab('timeline')} icon={ListTree}>Lifecycle</Tab>
                 <Tab active={tab === 'report'} onClick={() => setTab('report')} icon={FileText}>Technical report</Tab>
               </div>
               <div className="p-5">
                 {tab === 'evidence' && <EvidencePanel query={evidenceQuery} />}
-                {tab === 'timeline' && <Lifecycle incident={incident} />}
                 {tab === 'report' && <IncidentTechnicalReport query={reportQuery} incidentId={id} />}
               </div>
             </section>
@@ -74,9 +72,4 @@ function EvidencePanel({ query }) {
 function EvidenceList({ title, items, render }) {
   if (!items.length) return null;
   return <section><h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">{title} ({items.length})</h3><div className="space-y-2">{items.slice(0, 100).map((item, index) => <article key={item.id ?? item.eventId ?? index} className="border border-gray-200 rounded-lg p-3">{render(item)}</article>)}</div></section>;
-}
-
-function Lifecycle({ incident }) {
-  if (!incident.progress.length) return <EmptyState title="No lifecycle data recorded." />;
-  return <ol className="space-y-3">{incident.progress.map((step) => <li key={step.label} className="flex items-center gap-3"><span className={`w-3 h-3 rounded-full ${step.done ? 'bg-blue-500' : 'bg-gray-200'}`} /><div><p className={`text-sm font-semibold ${step.done ? 'text-gray-800' : 'text-gray-400'}`}>{step.label}</p>{step.at && <p className="text-xs text-gray-400">{formatTimestamp(step.at)}</p>}</div></li>)}</ol>;
 }

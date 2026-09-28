@@ -1,10 +1,16 @@
 import StatusPill from "../ui/StatusPill";
+import IncidentProgress from "./IncidentProgress";
 import { formatMillis, formatTimestamp } from "../../api/adapters";
 
 /** Existing incident header, enhanced only when technical-report data is available. */
 export default function IncidentHeader({ incident, report }) {
   return (
     <header className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+      {incident.progress.length > 0 && (
+        <div className="mb-5 pb-5 border-b border-gray-100">
+          <IncidentProgress steps={incident.progress} />
+        </div>
+      )}
       <div className="flex items-center gap-3 mb-1 flex-wrap">
         <h1 className="text-lg font-bold text-gray-900">{incident.title}</h1>
         <StatusPill status={incident.severity} />

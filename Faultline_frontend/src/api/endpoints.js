@@ -5,7 +5,7 @@
  * `bucketMs`, on the metrics endpoint) so a rename on either side fails loudly instead
  * of silently dropping a filter.
  */
-import { apiDelete, apiGet, apiPatch, apiPost } from "./client.js";
+import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from "./client.js";
 
 // Reporting remains in its own contract-focused module, but is re-exported here so
 // consumers keep using the app's established one-stop endpoint surface.
@@ -49,6 +49,13 @@ export const listPlans = (options = {}) =>
 /** Starts hosted checkout; account provisioning happens after signed payment. */
 export const createCheckout = (body, options = {}) =>
   apiPost("/billing/checkout", body, { ...options, auth: false });
+
+/**
+ * The signed-in account's tier: its plan, the modules it may open, the ones locked and
+ * which tier unlocks each, and allowances such as the cluster limit.
+ */
+export const getEntitlements = (options) =>
+  apiGet("/billing/entitlements", undefined, options);
 
 /** Reads the payment provider's status without exposing account credentials. */
 export const getCheckoutStatus = (sessionId, options = {}) =>
@@ -108,6 +115,32 @@ export const getClusterOnboarding = (id, options) =>
 export const startClusterUninstall = (clusterId, options) =>
   apiDelete(
     `/cluster-onboarding/clusters/${encodeURIComponent(clusterId)}`,
+    options,
+  );
+
+/* ------------------------------------------------------- user management */
+
+/** Admin only. Every account, with the project assignments the caller can see. */
+export const listUsers = (options) => apiGet("/admin/users", undefined, options);
+
+/** `projectIds` are granted in the same request, so a new engineer never sees nothing. */
+export const createUser = (user, options) => apiPost("/admin/users", user, options);
+
+/** Name, role, status and password; the API has no route that deletes a user. */
+export const updateUser = (userId, changes, options) =>
+  apiPatch(`/admin/users/${encodeURIComponent(userId)}`, changes, options);
+
+/** Project assignment is the only thing that lets an engineer see a cluster. */
+export const assignProject = (userId, projectId, options) =>
+  apiPut(
+    `/admin/users/${encodeURIComponent(userId)}/projects/${encodeURIComponent(projectId)}`,
+    undefined,
+    options,
+  );
+
+export const unassignProject = (userId, projectId, options) =>
+  apiDelete(
+    `/admin/users/${encodeURIComponent(userId)}/projects/${encodeURIComponent(projectId)}`,
     options,
   );
 

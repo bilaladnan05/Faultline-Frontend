@@ -3,8 +3,8 @@ import { Link } from "react-router-dom";
 import "../styles/landing.css";
 
 // Marketing page shown at "/" before anyone signs in. Everything on it is scoped
-// under .fl-landing (see styles/landing.css) so the dark treatment cannot leak
-// into the light app shell.
+// under .fl-landing (see styles/landing.css) so its styles cannot leak into the
+// app shell.
 
 // Order matters: comments, then strings, then bare numbers.
 const TOKEN_PATTERN =

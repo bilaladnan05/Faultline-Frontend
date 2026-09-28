@@ -46,6 +46,46 @@ test("clusters replace dashboard as the authenticated landing tab", () => {
   assert.doesNotMatch(sidebar, /label: "Dashboard"/);
 });
 
+/** One role's `start` or `cluster` menu from the Sidebar's MENUS, as NAV keys. */
+function menu(sidebar, role, mode) {
+  const block = sidebar.match(new RegExp(`${role}: \\{([\\s\\S]*?)\\n  \\},`))?.[1];
+  const list = block?.match(new RegExp(`${mode}: \\[([^\\]]*)\\]`))?.[1];
+  return list ? [...list.matchAll(/NAV\.(\w+)/g)].map((match) => match[1]) : null;
+}
+
+test("each role starts on its own menu and switches to a cluster menu on Manage", () => {
+  const sidebar = read("src/components/layout/Sidebar.jsx");
+  const deployments = read("src/pages/DeploymentsPage.jsx");
+
+  assert.deepEqual(menu(sidebar, "owner", "start"), ["clusters", "onboarding", "team", "integrations"]);
+  // No separate incidents list: the Incident Ledger is the list.
+  assert.deepEqual(menu(sidebar, "owner", "cluster"), [
+    "alerts", "integrations", "runtime", "ledger", "reporting", "voiceAgent", "team",
+  ]);
+  assert.deepEqual(menu(sidebar, "engineer", "start"), ["clusters"]);
+  assert.deepEqual(menu(sidebar, "engineer", "cluster"), [
+    "alerts", "runtime", "ledger", "reporting", "voiceAgent",
+  ]);
+  assert.doesNotMatch(sidebar, /to: "\/incidents"/);
+  assert.match(sidebar, /const menu = isAdmin \? MENUS\.owner : MENUS\.engineer/);
+  assert.match(sidebar, /const inCluster = Boolean\(activeProject\)/);
+  assert.match(sidebar, /inCluster \? menu\.cluster : menu\.start/);
+
+  // Manage opens the cluster; the switcher and the registry pages close it again.
+  assert.match(deployments, /setActiveProject\(\{/);
+  assert.match(deployments, /onClick=\{\(\) => open\(cluster, "\/ledger"\)\}/);
+  assert.match(sidebar, /clearActiveProject\(\);\s*navigate\("\/clusters"\)/);
+  assert.match(sidebar, /if \(ORGANIZATION_PATHS\.has\(pathname\)\) clearActiveProject\(\)/);
+});
+
+test("the sidebar shows who is signed in and lets them sign out", () => {
+  const sidebar = read("src/components/layout/Sidebar.jsx");
+  assert.match(sidebar, /const \{ user, isAdmin, signOut(, \w+)* \} = useAuth\(\)/);
+  assert.match(sidebar, /roleLabel\(user\?\.role\)/);
+  assert.match(sidebar, /onClick=\{handleSignOut\}[\s\S]*?<LogOut/);
+  assert.match(sidebar, /clearActiveProject\(\);\s*await signOut\(\);\s*navigate\("\/login", \{ replace: true \}\)/);
+});
+
 test("admins can start a confirmed cluster uninstall and follow its job", () => {
   const endpoints = read("src/api/endpoints.js");
   const deployments = read("src/pages/DeploymentsPage.jsx");
@@ -56,15 +96,6 @@ test("admins can start a confirmed cluster uninstall and follow its job", () => 
   assert.match(deployments, /startClusterUninstall\(cluster\.clusterId\)/);
   assert.match(deployments, /getClusterOnboarding\(uninstallJob\.id/);
   assert.match(deployments, /\{isAdmin && \(/);
-});
-
-test("cluster management exposes multi-select SRE call assignments to admins", () => {
-  const deployments = read("src/pages/DeploymentsPage.jsx");
-  assert.match(deployments, /isAdmin && clusters\.length > 0 && <AssignedSresModule/);
-  assert.match(deployments, /<h2[^>]*>Assigned SREs<\/h2>/);
-  assert.match(deployments, /<select multiple/);
-  assert.match(deployments, /assignClusterSre\(clusterId, id\)/);
-  assert.match(deployments, /unassignClusterSre\(clusterId, id\)/);
 });
 
 test("the auth context's endpoint functions remain available", () => {

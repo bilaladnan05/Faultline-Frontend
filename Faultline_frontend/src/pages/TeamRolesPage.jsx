@@ -1,15 +1,39 @@
-import { Phone, Users } from "lucide-react";
-import { listContacts, listOnCallSchedules } from "../api/endpoints";
+import { useMemo } from "react";
+import { listClusters } from "../api/endpoints";
 import TopBar from "../components/layout/TopBar";
-import { AsyncSection } from "../components/ui/AsyncState";
-import StatusPill from "../components/ui/StatusPill";
+import OnsiteEngineersCard from "../components/team/OnsiteEngineersCard";
+import { ErrorState, StaleBanner } from "../components/ui/AsyncState";
 import { useApiResource } from "../hooks/useApiResource";
 
+/**
+ * Onsite engineer accounts and the clusters each one can see. Admin only, here and at
+ * the API. The cluster list is the signed-in admin's own: `/clusters` is scoped to the
+ * caller's organization and project assignments.
+ */
 export default function TeamRolesPage() {
-  const contacts = useApiResource(({ signal }) => listContacts({ signal }), []);
-  const schedules = useApiResource(({ signal }) => listOnCallSchedules({ signal }), []);
-  return <div className="flex flex-col flex-1"><TopBar breadcrumbs={["Notifications", "Contacts & on-call"]} /><main className="flex-1 overflow-y-auto p-6 space-y-5"><div><h1 className="text-xl font-bold text-gray-900">Contacts & On-call</h1><p className="text-sm text-gray-500 mt-1">Notification recipients and schedules configured in the backend.</p></div><div className="grid grid-cols-1 xl:grid-cols-2 gap-5"><section className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden"><Header icon={Users} title="Contacts" count={contacts.data?.length} /><AsyncSection {...contacts} onRetry={contacts.refetch} isEmpty={(items) => items.length === 0} emptyTitle="No contacts configured"><ul className="divide-y divide-gray-100">{(contacts.data ?? []).map((contact) => <li key={contact.id} className="p-4 flex items-center gap-3"><div className="w-9 h-9 rounded-full bg-blue-50 text-blue-700 flex items-center justify-center font-bold text-xs">{initials(contact.name)}</div><div className="min-w-0 flex-1"><p className="text-sm font-semibold text-gray-900">{contact.name}</p><p className="text-xs text-gray-500"><Phone size={10} className="inline mr-1" />{contact.phoneNumber}</p></div><div className="text-right"><StatusPill status={contact.enabled ? "ACTIVE" : "INACTIVE"} label={contact.enabled ? "Enabled" : "Disabled"} /><p className="text-[10px] text-gray-400 mt-1">{contact.role?.replaceAll("_", " ")}</p></div></li>)}</ul></AsyncSection></section><section className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden"><Header icon={Phone} title="On-call schedules" count={schedules.data?.length} /><AsyncSection {...schedules} onRetry={schedules.refetch} isEmpty={(items) => items.length === 0} emptyTitle="No on-call schedules configured"><ul className="divide-y divide-gray-100">{(schedules.data ?? []).map((schedule) => <li key={schedule.id} className="p-4"><div className="flex items-center justify-between"><p className="text-sm font-semibold text-gray-900">{schedule.name}</p><StatusPill status={schedule.enabled ? "ACTIVE" : "INACTIVE"} label={schedule.enabled ? "Enabled" : "Disabled"} /></div><p className="text-xs text-gray-500 mt-1">{schedule.timezone} · Team {schedule.teamId}</p></li>)}</ul></AsyncSection></section></div></main></div>;
-}
-function Header({ icon: Icon, title, count }) { return <div className="flex items-center gap-2 px-5 py-4 border-b border-gray-100"><Icon size={15} className="text-gray-400" /><h2 className="text-sm font-bold text-gray-900">{title}</h2>{Number.isFinite(count) && <span className="ml-auto text-xs text-gray-400">{count}</span>}</div>; }
-function initials(name = "") { return name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase() || "?"; }
+  const clusters = useApiResource(({ signal }) => listClusters({ signal }), []);
+  const clusterList = useMemo(() => clusters.data ?? [], [clusters.data]);
 
+  return (
+    <div className="flex flex-col flex-1">
+      <TopBar breadcrumbs={["Administration", "Team & Roles"]} />
+      <main className="flex-1 overflow-y-auto p-6 space-y-5">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">Team & Roles</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Create onsite engineer accounts and choose which of your clusters each one can see.
+          </p>
+        </div>
+
+        {clusters.error && !clusters.data ? (
+          <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+            <ErrorState error={clusters.error} onRetry={clusters.refetch} className="py-8" />
+          </div>
+        ) : (
+          <StaleBanner error={clusters.error} onRetry={clusters.refetch} />
+        )}
+        <OnsiteEngineersCard clusters={clusterList} />
+      </main>
+    </div>
+  );
+}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Server, RefreshCw, ShieldAlert, Boxes, LoaderCircle, Trash2, UserRoundCheck } from "lucide-react";
+import { Server, RefreshCw, ShieldAlert, Boxes, LoaderCircle, Trash2 } from "lucide-react";
 import TopBar from "../components/layout/TopBar";
 import { AsyncSection, StaleBanner } from "../components/ui/AsyncState";
 import { useApiResource } from "../hooks/useApiResource";
@@ -10,13 +10,11 @@ import {
   getSystemInfo,
   listClusters,
   startClusterUninstall,
-  getClusterSres,
-  assignClusterSre,
-  unassignClusterSre,
 } from "../api/endpoints";
 import { formatAge } from "../api/adapters";
 import { useProject } from "../context/useProject";
 import { useAuth } from "../auth/AuthContext";
+import { clusterLimit } from "../auth/plans";
 
 const STATUS_STYLE = {
   connected: { label: "Healthy", dot: "bg-green-500", text: "text-green-600", border: "border-l-green-500" },
@@ -27,7 +25,8 @@ const STATUS_STYLE = {
 export default function DeploymentsPage() {
   const navigate = useNavigate();
   const { setActiveProject } = useProject();
-  const { isAdmin } = useAuth();
+  const { isAdmin, entitlements } = useAuth();
+  const limit = clusterLimit(entitlements);
   const [uninstallJob, setUninstallJob] = useState(null);
   const [uninstallingClusterId, setUninstallingClusterId] = useState(null);
   const [uninstallError, setUninstallError] = useState("");
@@ -145,6 +144,12 @@ export default function DeploymentsPage() {
           <p className="text-sm text-gray-500 mt-1">
             Clusters explicitly registered by onboarding. Select one to open its monitored workspace.
           </p>
+          {limit !== null && registered.data && (
+            <p className="text-xs font-semibold text-gray-500 mt-2">
+              {entitlements.planName} plan: {clusters.length} of {limit} cluster{limit === 1 ? "" : "s"} used.
+              {clusters.length >= limit && " Upgrade to Pro to connect more."}
+            </p>
+          )}
         </div>
 
         {/* API status — the connection this whole app depends on. */}
@@ -218,8 +223,6 @@ export default function DeploymentsPage() {
           ))}
         </div>
 
-        {isAdmin && clusters.length > 0 && <AssignedSresModule clusters={clusters} />}
-
         <AsyncSection
           loading={registered.loading}
           error={registered.error}
@@ -290,7 +293,7 @@ export default function DeploymentsPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => open(cluster, "/incidents")}
+                      onClick={() => open(cluster, "/ledger")}
                       className="flex-1 bg-gray-900 text-white hover:bg-gray-800 text-sm font-semibold py-1.5 rounded-lg"
                     >
                       Manage
@@ -325,58 +328,4 @@ export default function DeploymentsPage() {
       </div>
     </div>
   );
-}
-
-function AssignedSresModule({ clusters }) {
-  const [selectedClusterId, setSelectedClusterId] = useState("");
-  const clusterId = selectedClusterId || clusters[0]?.clusterId || "";
-  const resource = useApiResource(
-    ({ signal }) => clusterId
-      ? getClusterSres(clusterId, { signal })
-      : Promise.resolve({ items: [] }),
-    [clusterId],
-  );
-  const [drafts, setDrafts] = useState({});
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState(null);
-  const items = resource.data?.items ?? [];
-  const persisted = items.filter((item) => item.assigned).map((item) => item.id);
-  const selected = drafts[clusterId] ?? persisted;
-
-  const save = async () => {
-    setSaving(true);
-    setMessage(null);
-    try {
-      const current = new Set(persisted);
-      const desired = new Set(selected);
-      await Promise.all([
-        ...selected.filter((id) => !current.has(id)).map((id) => assignClusterSre(clusterId, id)),
-        ...persisted.filter((id) => !desired.has(id)).map((id) => unassignClusterSre(clusterId, id)),
-      ]);
-      setDrafts((value) => ({ ...value, [clusterId]: [...selected] }));
-      setMessage({ type: "success", text: "Assigned SREs updated." });
-      await resource.refetch();
-    } catch (error) {
-      setMessage({ type: "error", text: error.message || "Could not update assigned SREs." });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-    <div className="flex items-center gap-3">
-      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600"><UserRoundCheck size={20} /></span>
-      <div><h2 className="text-sm font-bold text-gray-900">Assigned SREs</h2><p className="mt-1 text-xs text-gray-500">These engineers receive immediate Retell calls and SMS for incidents on the selected cluster.</p></div>
-    </div>
-    <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_auto] lg:items-end">
-      <label className="text-xs font-semibold text-gray-700">Cluster<select value={clusterId} onChange={(event) => { setSelectedClusterId(event.target.value); setMessage(null); }} className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm">{clusters.map((cluster) => <option key={cluster.clusterId} value={cluster.clusterId}>{cluster.name}</option>)}</select></label>
-      <label className="text-xs font-semibold text-gray-700">Onsite Engineers<select multiple value={selected} disabled={resource.loading || saving} onChange={(event) => setDrafts((value) => ({ ...value, [clusterId]: [...event.target.selectedOptions].map((option) => option.value) }))} className="mt-1 min-h-28 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm disabled:bg-gray-100">{items.map((item) => <option key={item.id} value={item.id} disabled={item.status !== "active" && !item.assigned}>{item.name} · {item.email}{!item.phoneConfigured ? " · no phone contact" : !item.voiceEnabled ? " · voice disabled" : ""}{item.status !== "active" ? " · disabled" : ""}</option>)}</select></label>
-      <button type="button" onClick={save} disabled={resource.loading || saving} className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-gray-300">{saving ? <LoaderCircle size={15} className="animate-spin" /> : <UserRoundCheck size={15} />}{saving ? "Saving…" : "Save assignments"}</button>
-    </div>
-    {resource.loading && <p className="mt-3 text-xs text-gray-500">Loading Onsite Engineers…</p>}
-    {resource.error && <p className="mt-3 text-sm text-red-600">{resource.error.message}</p>}
-    {!resource.loading && !resource.error && !items.length && <p className="mt-3 text-sm text-amber-700">No Onsite Engineer accounts exist yet. Create them from Administration → Users.</p>}
-    {message && <p className={`mt-3 text-sm ${message.type === "success" ? "text-green-600" : "text-red-600"}`}>{message.text}</p>}
-    <p className="mt-3 text-xs text-gray-500">Hold Ctrl (Windows) or Command (macOS) to select multiple engineers. User project access remains managed separately under Administration → Users.</p>
-  </section>;
 }

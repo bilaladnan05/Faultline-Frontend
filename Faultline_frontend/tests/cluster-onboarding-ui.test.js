@@ -12,7 +12,9 @@ test("the onboarding route renders the reusable cluster form", () => {
 
   assert.match(app, /path="clusters\/onboarding"/);
   assert.match(page, /import ClusterOnboardingForm/);
-  assert.match(page, /<ClusterOnboardingForm \/>/);
+  // Re-reads the cluster count on success, so a plan's allowance is shown as soon as
+  // the last permitted cluster is connected.
+  assert.match(page, /<ClusterOnboardingForm onSuccess=\{clusters\.refetch\} \/>/);
   assert.doesNotMatch(page, /startClusterOnboarding|setClusterName|<form/);
 });
 

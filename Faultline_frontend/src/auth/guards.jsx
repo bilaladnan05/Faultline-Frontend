@@ -1,4 +1,5 @@
 import { Navigate, useLocation, useParams } from "react-router-dom";
+import PlanLockedPage from "../pages/PlanLockedPage";
 import { useAuth } from "./AuthContext";
 import { hasProjectAccess, hasRole } from "./roles";
 
@@ -88,6 +89,19 @@ export function RequireProjectAccess({ children }) {
   ) : (
     <Navigate to="/forbidden" replace state={{ projectId }} />
   );
+}
+
+/**
+ * Restricts a subtree to accounts whose plan includes a module.
+ *
+ * Renders an explanation in place rather than redirecting: the page exists, it just is
+ * not on this plan, and saying which plan it is on is more useful than a bounce. As with
+ * the other guards, the API refuses the module's routes on its own.
+ */
+export function RequireFeature({ feature, children }) {
+  const { hasFeature, loading } = useAuth();
+  if (loading) return <Verifying />;
+  return hasFeature(feature) ? children : <PlanLockedPage feature={feature} />;
 }
 
 /** Renders children only when the permission is held. Used for buttons, not routes. */

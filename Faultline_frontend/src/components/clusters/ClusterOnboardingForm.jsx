@@ -62,7 +62,13 @@ export default function ClusterOnboardingForm({ onSuccess }) {
     try {
       setJob(await startClusterOnboarding(clusterName.trim(), controlPlaneIp.trim()));
     } catch (caught) {
-      setError(caught?.status === 403 ? "Only an administrator can onboard a cluster." : caught?.message || "Cluster onboarding could not be started.");
+      // A plan refusal (cluster allowance used) carries its own explanation and the tier
+      // that lifts it; any other 403 is the role check.
+      setError(
+        caught?.status === 403 && !caught?.body?.requiredPlan
+          ? "Only an administrator can onboard a cluster."
+          : caught?.message || "Cluster onboarding could not be started.",
+      );
     } finally {
       setSubmitting(false);
     }

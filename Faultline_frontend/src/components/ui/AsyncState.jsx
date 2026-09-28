@@ -1,4 +1,4 @@
-import { AlertTriangle, Inbox, Loader2, RefreshCw, WifiOff } from "lucide-react";
+import { AlertTriangle, Inbox, Loader2, Lock, RefreshCw, WifiOff } from "lucide-react";
 
 /**
  * Loading / error / empty states shared by every API-backed view.
@@ -44,6 +44,15 @@ function describe(error) {
       title: "Storage is unavailable",
       detail: `${error.message}. The API is running but its backing store (ClickHouse or PostgreSQL) is not answering.`,
       icon: AlertTriangle,
+    };
+  }
+  // The plan guard's refusal names the tier that unlocks the module; say that rather
+  // than blaming the cluster scope.
+  if (error.status === 403 && error.body?.requiredPlanName) {
+    return {
+      title: "Not included in your plan",
+      detail: `${error.message}. It is available on the ${error.body.requiredPlanName} plan.`,
+      icon: Lock,
     };
   }
   if (error.status === 403) {
