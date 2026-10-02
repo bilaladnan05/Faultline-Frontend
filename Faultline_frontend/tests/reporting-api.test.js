@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import { ApiError } from "../src/api/client.js";
 import {
+  createIncidentSlackTicket,
   exportIncidentReport,
   getIncidentAnalytics,
   getIncidentReport,
@@ -35,6 +36,13 @@ test("getIncidentSlackTicket calls the safe metadata route", async () => {
   respond({ ticket: null });
   await getIncidentSlackTicket("incident/id");
   assert.equal(respond.last.url, "/api/incidents/incident%2Fid/external-tickets/slack");
+});
+
+test("createIncidentSlackTicket requests the idempotent ticket route", async () => {
+  respond({ status: "REQUESTED", ticket: null }, { status: 202 });
+  await createIncidentSlackTicket("incident/id");
+  assert.equal(respond.last.url, "/api/incidents/incident%2Fid/external-tickets/slack");
+  assert.equal(respond.last.options.method, "POST");
 });
 
 test("analytics serializes date filters as ISO 8601", async () => {

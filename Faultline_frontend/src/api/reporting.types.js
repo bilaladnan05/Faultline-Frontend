@@ -177,4 +177,10 @@
  * @property {SlackTicket | null} ticket
  */
 
+/**
+ * @typedef {Object} SlackTicketCreationResponse
+ * @property {"LINKED" | "REQUESTED"} status
+ * @property {SlackTicket | null} ticket
+ */
+
 export {};

@@ -37,6 +37,7 @@ export default function LedgerPage() {
             entry.id,
             entry.title,
             entry.summary,
+            entry.reasonSummary,
             entry.service,
             entry.clusterId,
             entry.classificationLabel,
@@ -150,6 +151,9 @@ export default function LedgerPage() {
                       </td>
                       <td className="px-5 py-3">
                         <p className="font-semibold text-gray-900">{entry.title}</p>
+                        <p className="text-xs text-gray-600 mt-0.5 max-w-md line-clamp-2" title={entry.reasonSummary}>
+                          {entry.reasonSummary}
+                        </p>
                         <p className="font-mono text-xs text-gray-400">{entry.id}</p>
                       </td>
                       <td className="px-5 py-3 text-gray-600">{entry.classificationLabel}</td>

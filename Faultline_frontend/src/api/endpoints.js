@@ -10,6 +10,7 @@ import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from "./client.js";
 // Reporting remains in its own contract-focused module, but is re-exported here so
 // consumers keep using the app's established one-stop endpoint surface.
 export {
+  createIncidentSlackTicket,
   exportIncidentReport,
   getIncidentAnalytics,
   getIncidentReport,

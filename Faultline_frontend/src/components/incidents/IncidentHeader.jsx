@@ -6,7 +6,7 @@ import { formatMillis, formatTimestamp } from "../../api/adapters";
 export default function IncidentHeader({ incident, report }) {
   return (
     <header className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-      {incident.progress.length > 0 && (
+      {(incident.progress?.length ?? 0) > 0 && (
         <div className="mb-5 pb-5 border-b border-gray-100">
           <IncidentProgress steps={incident.progress} />
         </div>
@@ -21,6 +21,12 @@ export default function IncidentHeader({ incident, report }) {
       </div>
       <p className="text-[11px] font-mono text-gray-400 mb-2">{incident.id}</p>
       <p className="text-sm text-gray-600 mb-4">{incident.summary}</p>
+      {incident.reasonSummary && !incident.summary?.includes(incident.reasonSummary) && (
+        <div className="mb-4 rounded-lg border border-blue-100 bg-blue-50/60 px-3 py-2">
+          <p className="text-[10px] font-bold text-blue-700 uppercase tracking-wider">Observed evidence</p>
+          <p className="text-sm text-blue-900 mt-0.5">{incident.reasonSummary}</p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 lg:gap-6">
         <Field label="Primary resource" value={incident.service} mono />

@@ -2,6 +2,7 @@ import { AlertTriangle, Code2, HeartPulse, RefreshCw, ShieldAlert, Wrench } from
 import StatusPill from "../ui/StatusPill";
 import { EmptyState } from "../ui/AsyncState";
 import IncidentReportExport from "./IncidentReportExport";
+import IncidentResourceSnapshots from "./IncidentResourceSnapshots";
 import { classificationLabel, formatMillis, formatTimestamp, titleCase } from "../../api/adapters";
 
 /** Read-only presentation of the normalized IncidentTechnicalReport response. */
@@ -50,6 +51,13 @@ export default function IncidentTechnicalReport({ query, incidentId }) {
           <Metric label="Affected services" value={report.incident.affectedServices.length} />
         </div>
       </section>
+
+      <ReportSection
+        title="CPU and Memory at Incident Detection"
+        detail={`${report.resourceSnapshots?.length ?? 0} snapshots`}
+      >
+        <IncidentResourceSnapshots snapshots={report.resourceSnapshots ?? []} />
+      </ReportSection>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
         <ReportSection title="Anomalies" icon={ShieldAlert} detail={`${report.anomalies.total} total`}>

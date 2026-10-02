@@ -1,4 +1,4 @@
-import { ApiError, apiGet, apiGetBlob } from "./client.js";
+import { ApiError, apiGet, apiGetBlob, apiPost } from "./client.js";
 
 export const INCIDENT_TREND_BUCKETS = ["hour", "day", "week", "month"];
 export const REPORT_EXPORT_FORMATS = ["json", "csv", "pdf"];
@@ -35,6 +35,16 @@ export const getIncidentSlackTicket = (incidentId, options) => {
   return apiGet(
     `/incidents/${encodeURIComponent(incidentId)}/external-tickets/slack`,
     undefined,
+    options,
+  );
+};
+
+/** @returns {Promise<import("./reporting.types").SlackTicketCreationResponse>} */
+export const createIncidentSlackTicket = (incidentId, options) => {
+  if (!incidentId) throw new TypeError("incidentId is required");
+  return apiPost(
+    `/incidents/${encodeURIComponent(incidentId)}/external-tickets/slack`,
+    {},
     options,
   );
 };
