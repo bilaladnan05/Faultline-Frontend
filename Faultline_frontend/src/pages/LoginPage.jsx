@@ -28,19 +28,32 @@ export default function LoginPage() {
     }
     setLoading(true);
     try {
-      const user = await signIn(email, password);
+      const result = await signIn(email, password);
+      if (result?.mfaRequired) {
+        navigate("/mfa", {
+          replace: true,
+          state: {
+            challengeToken: result.challengeToken,
+            expiresAt: result.expiresAt,
+            email: result.user?.email || email,
+          },
+        });
+        return;
+      }
+      const user = result;
       // The onboarded-clusters list is the authenticated entry point. Onboarding
       // remains available as a separate route for adding more clusters.
-      navigate(user?.mustChangePassword ? "/change-password" : "/clusters", {
-        replace: true,
-      });
+      navigate(
+        user?.mustChangePassword
+          ? "/change-password"
+          : user?.mfaEnrollmentRequired
+            ? "/security/mfa"
+            : "/clusters",
+        { replace: true },
+      );
     } catch (caught) {
-      // 503 is how the API reports "a second factor is required but none is wired",
-      // which is an operator problem and needs saying differently from a bad password.
       setError(
-        caught?.status === 503
-          ? caught.message
-          : caught?.status === 401
+        caught?.status === 401
             ? caught.message
             : caught?.isNetwork
               ? "Cannot reach the Faultline API. Is the backend running?"
@@ -90,7 +103,7 @@ export default function LoginPage() {
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="block text-sm font-medium text-gray-700">Password</label>
-                <button type="button" className="text-xs text-blue-600 hover:underline font-medium">Forgot password?</button>
+                <button type="button" onClick={() => navigate("/forgot-password")} className="text-xs text-blue-600 hover:underline font-medium">Forgot password?</button>
               </div>
               <div className="relative">
                 <input

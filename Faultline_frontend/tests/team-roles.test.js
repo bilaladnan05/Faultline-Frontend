@@ -38,7 +38,6 @@ test("user management endpoints hit the admin users routes", async () => {
     email: "a@b.io",
     name: "A",
     role: "onsiteengineer",
-    password: "x".repeat(12),
     projectIds: ["booknest"],
     phoneNumber: "+923001234567",
     smsEnabled: true,
@@ -99,6 +98,11 @@ test("cluster access is a dropdown of every cluster the admin manages", () => {
 test("engineer create, edit, access and disable go through the API", () => {
   const card = read("src/components/team/OnsiteEngineersCard.jsx");
   assert.match(card, /createUser\(\{[\s\S]*role: ROLES\.ONSITE_ENGINEER/);
+  assert.doesNotMatch(
+    card.match(/const create = \(values\)[\s\S]*?const update =/)?.[0] ?? "",
+    /password:/,
+  );
+  assert.match(card, /temporary password will be generated automatically and emailed/i);
   assert.match(card, /updateUser\(engineer\.id, changes\)/);
   assert.match(card, /updateUser\(engineer\.id, \{ status: disabling \? "disabled" : "active" \}\)/);
   assert.match(card, /assignProject\(engineer\.id, projectId\)/);

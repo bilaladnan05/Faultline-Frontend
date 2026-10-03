@@ -2,7 +2,8 @@ import { useEffect } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   ArrowLeftRight, Bell, Monitor, BookOpen,
-  BarChart2, Lock, LogOut, Phone, Users, Server, Zap, Plug, Network
+  BarChart2, Lock, LogOut, Phone, Users, Server, Zap, Plug, Network, ShieldCheck,
+  ScrollText
 } from "lucide-react";
 import { useAuth } from "../../auth/AuthContext";
 import { FEATURES, lockFor } from "../../auth/plans";
@@ -23,6 +24,8 @@ const NAV = {
   reporting: { to: "/reporting", icon: BarChart2, label: "Reports", feature: FEATURES.REPORTING },
   voiceAgent: { to: "/voice-agent", icon: Phone, label: "Voice Agent", feature: FEATURES.VOICE_AGENT },
   team: { to: "/team", icon: Users, label: "Team & Roles", feature: FEATURES.TEAM_MANAGEMENT },
+  audit: { to: "/admin/audit", icon: ScrollText, label: "Audit Log" },
+  security: { to: "/security/mfa", icon: ShieldCheck, label: "Account Security" },
 };
 
 /**
@@ -32,21 +35,25 @@ const NAV = {
 const MENUS = {
   /** Org owner (admin): organization pages, then everything but the cluster registry. */
   owner: {
-    start: [NAV.clusters, NAV.onboarding, NAV.team, NAV.integrations],
+    start: [NAV.clusters, NAV.onboarding, NAV.team, NAV.audit, NAV.integrations, NAV.security],
     cluster: [
       NAV.alerts, NAV.integrations, NAV.runtime,
-      NAV.ledger, NAV.reporting, NAV.voiceAgent, NAV.team,
+      NAV.ledger, NAV.reporting, NAV.voiceAgent, NAV.team, NAV.audit, NAV.security,
     ],
   },
   /** Onsite engineer: pick a cluster, then only its operational pages. */
   engineer: {
-    start: [NAV.clusters],
-    cluster: [NAV.alerts, NAV.runtime, NAV.ledger, NAV.reporting, NAV.voiceAgent],
+    start: [NAV.clusters, NAV.security],
+    cluster: [NAV.alerts, NAV.runtime, NAV.ledger, NAV.reporting, NAV.voiceAgent, NAV.security],
   },
 };
 
 /** Pages that belong to no single cluster; arriving on one leaves the cluster. */
-const ORGANIZATION_PATHS = new Set([NAV.clusters.to, NAV.onboarding.to]);
+const ORGANIZATION_PATHS = new Set([
+  NAV.clusters.to,
+  NAV.onboarding.to,
+  NAV.audit.to,
+]);
 
 const initialsOf = (name = "", email = "") => {
   const parts = (name || "").trim().split(/\s+/).filter(Boolean);

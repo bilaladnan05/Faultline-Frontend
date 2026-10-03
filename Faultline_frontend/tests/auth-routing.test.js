@@ -27,7 +27,8 @@ test("the landing and registration flow remain publicly routable", () => {
 test("successful authentication enters the user-scoped clusters view", () => {
   const login = read("src/pages/LoginPage.jsx");
   const deployments = read("src/pages/DeploymentsPage.jsx");
-  assert.match(login, /navigate\(user\?\.mustChangePassword \? "\/change-password" : "\/clusters"/);
+  assert.match(login, /user\?\.mustChangePassword[\s\S]*"\/change-password"[\s\S]*user\?\.mfaEnrollmentRequired[\s\S]*"\/security\/mfa"[\s\S]*"\/clusters"/);
+  assert.match(login, /result\?\.mfaRequired/);
   assert.doesNotMatch(login, /location\.state\?\.from/);
   assert.match(read("src/app/App.jsx"), /path="clusters\/onboarding"/);
   assert.doesNotMatch(deployments, /<ClusterOnboardingPage/);
@@ -57,17 +58,19 @@ test("each role starts on its own menu and switches to a cluster menu on Manage"
   const sidebar = read("src/components/layout/Sidebar.jsx");
   const deployments = read("src/pages/DeploymentsPage.jsx");
 
-  assert.deepEqual(menu(sidebar, "owner", "start"), ["clusters", "onboarding", "team", "integrations"]);
+  assert.deepEqual(menu(sidebar, "owner", "start"), ["clusters", "onboarding", "team", "audit", "integrations", "security"]);
   // No separate incidents list: the Incident Ledger is the list.
   assert.deepEqual(menu(sidebar, "owner", "cluster"), [
-    "alerts", "integrations", "runtime", "ledger", "reporting", "voiceAgent", "team",
+    "alerts", "integrations", "runtime", "ledger", "reporting", "voiceAgent", "team", "audit", "security",
   ]);
-  assert.deepEqual(menu(sidebar, "engineer", "start"), ["clusters"]);
+  assert.deepEqual(menu(sidebar, "engineer", "start"), ["clusters", "security"]);
   assert.deepEqual(menu(sidebar, "engineer", "cluster"), [
-    "alerts", "runtime", "ledger", "reporting", "voiceAgent",
+    "alerts", "runtime", "ledger", "reporting", "voiceAgent", "security",
   ]);
   assert.doesNotMatch(sidebar, /to: "\/incidents"/);
   assert.match(sidebar, /const menu = isAdmin \? MENUS\.owner : MENUS\.engineer/);
+  assert.match(sidebar, /audit: \{ to: "\/admin\/audit"/);
+  assert.match(read("src/app/App.jsx"), /path="admin\/audit"[\s\S]*<RequireRole roles=\{\[ROLES\.ADMIN\]\}>[\s\S]*<AdminAuditPage/);
   assert.match(sidebar, /const inCluster = Boolean\(activeProject\)/);
   assert.match(sidebar, /inCluster \? menu\.cluster : menu\.start/);
 

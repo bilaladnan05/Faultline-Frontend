@@ -2,9 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Zap, ShieldAlert, AlertCircle, Eye, EyeOff, LogOut } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
-
-/** The API applies the same floor; checking here just avoids a wasted round trip. */
-const MINIMUM_LENGTH = 12;
+import { PASSWORD_POLICY_HINT, passwordPolicyError } from "../auth/passwordPolicy";
 
 /**
  * Where a newly provisioned admin lands, and the only screen they can reach.
@@ -28,12 +26,12 @@ export default function ChangePasswordPage() {
   const set = (key) => (event) =>
     setForm((prev) => ({ ...prev, [key]: event.target.value }));
 
-  const tooShort = form.next.length > 0 && form.next.length < MINIMUM_LENGTH;
+  const policyError = passwordPolicyError(form.next);
   const mismatch = form.confirm.length > 0 && form.next !== form.confirm;
   const sameAsCurrent = form.next.length > 0 && form.next === form.current;
   const canSubmit =
     form.current.length > 0 &&
-    form.next.length >= MINIMUM_LENGTH &&
+    !policyError &&
     form.next === form.confirm &&
     !sameAsCurrent &&
     !busy;
@@ -44,10 +42,10 @@ export default function ChangePasswordPage() {
     if (!canSubmit) return;
     setBusy(true);
     try {
-      await changePassword(form.current, form.next);
+      const updated = await changePassword(form.current, form.next);
       // The context has already adopted the refreshed session, so the guards have
       // released by the time this navigation happens.
-      navigate("/clusters", { replace: true });
+      navigate(updated?.mfaEnrollmentRequired ? "/security/mfa" : "/clusters", { replace: true });
     } catch (caught) {
       setError(
         caught?.status === 401
@@ -125,13 +123,13 @@ export default function ChangePasswordPage() {
               id="new-password"
               label="New password"
               error={
-                tooShort
-                  ? `At least ${MINIMUM_LENGTH} characters.`
+                policyError
+                  ? policyError
                   : sameAsCurrent
                     ? "Must be different from your current password."
                     : null
               }
-              hint={`At least ${MINIMUM_LENGTH} characters. A memorable phrase beats a short, complicated one.`}
+              hint={PASSWORD_POLICY_HINT}
             >
               <div className="relative">
                 <input
@@ -140,7 +138,7 @@ export default function ChangePasswordPage() {
                   value={form.next}
                   onChange={set("next")}
                   autoComplete="new-password"
-                  aria-invalid={tooShort || sameAsCurrent}
+                  aria-invalid={Boolean(policyError || sameAsCurrent)}
                   className={`${inputClass} pr-10`}
                   placeholder="••••••••"
                 />

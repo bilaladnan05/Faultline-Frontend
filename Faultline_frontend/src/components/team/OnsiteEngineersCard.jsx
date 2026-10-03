@@ -17,9 +17,8 @@ import { useAuth } from "../../auth/AuthContext";
 import { ROLES } from "../../auth/roles";
 import { useApiResource } from "../../hooks/useApiResource";
 import { AsyncSection } from "../ui/AsyncState";
+import { PASSWORD_POLICY_HINT, passwordPolicyError } from "../../auth/passwordPolicy";
 
-/** The API applies the same floor; checking here only saves a wasted round trip. */
-const MINIMUM_PASSWORD = 12;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Mirrors `normalizePhoneNumber` in @faultline/notifications, so a bad number is caught
 // before the account exists rather than after.
@@ -118,12 +117,11 @@ export default function OnsiteEngineersCard({ clusters }) {
           email: values.email,
           name: values.name,
           role: ROLES.ONSITE_ENGINEER,
-          password: values.password,
           projectIds: values.projectIds,
           phoneNumber: values.phone,
           smsEnabled: values.smsEnabled,
         }),
-      `${values.email} was added.`,
+      `${values.email} was added and first-time sign-in credentials were emailed.`,
     );
 
   const update = (engineer, contact, values) =>
@@ -412,13 +410,12 @@ function EngineerForm({ engineer, contact, clusters, busy, onCancel, onSubmit })
   const phone = normalizePhone(form.phone);
   const emailError =
     !editing && form.email.trim() && !EMAIL.test(form.email.trim()) ? "Enter a valid email address." : null;
-  const passwordError =
-    form.password && form.password.length < MINIMUM_PASSWORD ? `At least ${MINIMUM_PASSWORD} characters.` : null;
+  const passwordError = editing ? passwordPolicyError(form.password) : null;
   const phoneError =
     phone && !E164.test(phone) ? "Use international format with the country code, e.g. +923001234567." : null;
   const valid =
     Boolean(form.name.trim()) &&
-    (editing || (EMAIL.test(form.email.trim()) && form.password.length >= MINIMUM_PASSWORD)) &&
+    (editing || EMAIL.test(form.email.trim())) &&
     !passwordError &&
     E164.test(phone);
 
@@ -468,23 +465,28 @@ function EngineerForm({ engineer, contact, clusters, busy, onCancel, onSubmit })
           </Field>
         )}
 
-        <Field
-          label={editing ? "New password" : "Initial password"}
-          error={passwordError}
-          hint={
-            editing
-              ? "Leave blank to keep the current password."
-              : `At least ${MINIMUM_PASSWORD} characters. Share it with the engineer securely.`
-          }
-        >
-          <input
-            type="password"
-            value={form.password}
-            onChange={set("password")}
-            autoComplete="new-password"
-            className={inputClass}
-          />
-        </Field>
+        {editing && (
+          <Field
+            label="New password"
+            error={passwordError}
+            hint={`Leave blank to keep the current password. ${PASSWORD_POLICY_HINT}`}
+          >
+            <input
+              type="password"
+              value={form.password}
+              onChange={set("password")}
+              autoComplete="new-password"
+              className={inputClass}
+            />
+          </Field>
+        )}
+
+        {!editing && (
+          <div className="rounded-lg border border-blue-100 bg-white/70 px-4 py-3 text-sm text-blue-900">
+            A secure temporary password will be generated automatically and emailed to the engineer.
+            They must replace it when they first sign in.
+          </div>
+        )}
 
         <Field
           label="Phone number"

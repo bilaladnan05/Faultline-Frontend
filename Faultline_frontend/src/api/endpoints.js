@@ -27,6 +27,47 @@ export {
 export const login = (email, password, options = {}) =>
   apiPost("/auth/login", { email, password }, { ...options, auth: false });
 
+export const requestPasswordReset = (email, options = {}) =>
+  apiPost(
+    "/auth/forgot-password",
+    { email },
+    { ...options, auth: false },
+  );
+
+export const resetPassword = (token, newPassword, options = {}) =>
+  apiPost(
+    "/auth/reset-password",
+    { token, newPassword },
+    { ...options, auth: false },
+  );
+
+/** Completes a password-authenticated login with a TOTP or one-time recovery code. */
+export const verifyMfaLogin = (challengeToken, code, options = {}) =>
+  apiPost(
+    "/auth/mfa/verify",
+    { challengeToken, code },
+    { ...options, auth: false },
+  );
+
+export const getMfaStatus = (options) =>
+  apiGet("/auth/mfa/status", undefined, options);
+
+export const startMfaEnrollment = (currentPassword, options) =>
+  apiPost("/auth/mfa/enrollment/start", { currentPassword }, options);
+
+export const finishMfaEnrollment = (enrollmentToken, code, options) =>
+  apiPost("/auth/mfa/enrollment/verify", { enrollmentToken, code }, options);
+
+export const disableMfa = (currentPassword, code, options) =>
+  apiPost("/auth/mfa/disable", { currentPassword, code }, options);
+
+export const regenerateMfaRecoveryCodes = (currentPassword, code, options) =>
+  apiPost(
+    "/auth/mfa/recovery-codes/regenerate",
+    { currentPassword, code },
+    options,
+  );
+
 /** Revalidates the stored session and refreshes the user's current assignments. */
 export const getCurrentUser = (options) => apiGet("/auth/me", undefined, options);
 
@@ -146,6 +187,26 @@ export const assignProject = (userId, projectId, options) =>
 export const unassignProject = (userId, projectId, options) =>
   apiDelete(
     `/admin/users/${encodeURIComponent(userId)}/projects/${encodeURIComponent(projectId)}`,
+    options,
+  );
+
+/**
+ * Admin-only, read-only audit trail. Organization scoping is enforced by the API from
+ * the authenticated administrator; the browser never supplies a tenant identifier.
+ */
+export const listAuditLog = (filter = {}, options) =>
+  apiGet(
+    "/admin/audit",
+    {
+      userId: filter.userId,
+      action: filter.action,
+      resourceType: filter.resourceType,
+      resourceId: filter.resourceId,
+      outcome: filter.outcome,
+      since: filter.since,
+      until: filter.until,
+      limit: filter.limit,
+    },
     options,
   );
 

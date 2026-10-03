@@ -11,6 +11,7 @@ import {
 } from "../../api/endpoints";
 import { ROLES, ROLE_STYLES, roleLabel } from "../../auth/roles";
 import { useAuth } from "../../auth/AuthContext";
+import { PASSWORD_POLICY_HINT, passwordPolicyError } from "../../auth/passwordPolicy";
 
 /**
  * User management, and with it project assignment.
@@ -296,7 +297,8 @@ function NewUserForm({ projects, onCancel, onCreate, busy }) {
         : [...prev.projectIds, projectId],
     }));
 
-  const valid = form.email.includes("@") && form.name.trim() && form.password.length >= 12;
+  const passwordError = passwordPolicyError(form.password);
+  const valid = form.email.includes("@") && form.name.trim() && form.password && !passwordError;
 
   return (
     <form
@@ -327,7 +329,7 @@ function NewUserForm({ projects, onCancel, onCreate, busy }) {
             ))}
           </select>
         </Field>
-        <Field label="Temporary password" hint="At least 12 characters; the API refuses shorter.">
+        <Field label="Temporary password" error={passwordError} hint={PASSWORD_POLICY_HINT}>
           <input type="password" value={form.password} onChange={set("password")} className={inputClass} />
         </Field>
       </div>
@@ -386,12 +388,12 @@ function NewUserForm({ projects, onCancel, onCreate, busy }) {
 const inputClass =
   "w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-gray-400";
 
-function Field({ label, hint, children }) {
+function Field({ label, hint, error, children }) {
   return (
     <div>
       <label className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
       {children}
-      {hint && <p className="text-xs text-gray-400 mt-1">{hint}</p>}
+      {error ? <p className="text-xs text-red-600 mt-1">{error}</p> : hint && <p className="text-xs text-gray-400 mt-1">{hint}</p>}
     </div>
   );
 }

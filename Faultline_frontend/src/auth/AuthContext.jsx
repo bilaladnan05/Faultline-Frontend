@@ -7,6 +7,7 @@ import {
   getEntitlements,
   login as loginRequest,
   logout as logoutRequest,
+  verifyMfaLogin,
 } from "../api/endpoints";
 import { planIncludes } from "./plans";
 import { hasPermission, hasProjectAccess, hasRole, isAdmin } from "./roles";
@@ -129,8 +130,7 @@ export function AuthProvider({ children }) {
     // Runs for each new token; `signOut` is stable.
   }, [token]);
 
-  const signIn = useCallback(async (email, password) => {
-    const session = await loginRequest(email, password);
+  const adoptSession = useCallback(async (session) => {
     setToken(session.accessToken);
     // Before the session is adopted, so the first screen after sign-in is already
     // drawn for the right tier rather than redrawn a moment later.
@@ -140,8 +140,27 @@ export function AuthProvider({ children }) {
     setUser(session.user);
     persist(session.accessToken, session.user);
     setLoading(false);
-    return session.user;
   }, []);
+
+  const signIn = useCallback(async (email, password) => {
+    const session = await loginRequest(email, password);
+    if (session.mfaRequired) return session;
+    await adoptSession(session);
+    return session.user;
+  }, [adoptSession]);
+
+  const completeMfaSignIn = useCallback(async (challengeToken, code) => {
+    const session = await verifyMfaLogin(challengeToken, code);
+    await adoptSession(session);
+    return session.user;
+  }, [adoptSession]);
+
+  const refreshUser = useCallback(async () => {
+    const fresh = await getCurrentUser();
+    setUser(fresh);
+    persist(token, fresh);
+    return fresh;
+  }, [token]);
 
   /**
    * Replaces the password and, for a provisioned admin, ends the confinement.
@@ -185,7 +204,10 @@ export function AuthProvider({ children }) {
        * API refuses every other route for such an account regardless of what this says.
        */
       mustChangePassword: user?.mustChangePassword === true,
+      mfaEnrollmentRequired: user?.mfaEnrollmentRequired === true,
       signIn,
+      completeMfaSignIn,
+      refreshUser,
       signOut: signOutRemote,
       changePassword,
       isAdmin: isAdmin(user),
@@ -197,7 +219,7 @@ export function AuthProvider({ children }) {
       /** Whether the tier includes a module. A courtesy: the API enforces the same rule. */
       hasFeature: (feature) => planIncludes(entitlements, feature),
     }),
-    [user, token, loading, entitlements, signIn, signOutRemote, changePassword],
+    [user, token, loading, entitlements, signIn, completeMfaSignIn, refreshUser, signOutRemote, changePassword],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
