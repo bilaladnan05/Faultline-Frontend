@@ -33,7 +33,7 @@ const CLASSIFICATION_LABELS = {
   NETWORK_TX_ANOMALY: "Network TX Anomaly",
   LATENCY_ANOMALY: "Latency Anomaly",
   APPLICATION_EXCEPTION: "Application Exception",
-  DATABASE_CONNECTIVITY: "Database Connectivity",
+  DATABASE_CONNECTIVITY: "Database Connectivity Issue",
   DEPENDENCY_TIMEOUT: "Dependency Timeout",
   AUTHENTICATION_FAILURE: "Authentication Failure",
   AUTHORIZATION_FAILURE: "Authorization Failure",
@@ -249,12 +249,32 @@ export function adaptIncident(incident) {
   if (!incident) return null;
   const primary = incident.primaryResource;
   const resources = dedupeResources([primary, ...(incident.affectedResources ?? [])]);
+  const signalSummaries = incidentSignalSummaries(incident);
+  const primarySignal = [...(incident.anomalies ?? [])].sort(
+    (left, right) =>
+      Number(right.source === "LOG_CLASSIFIER") - Number(left.source === "LOG_CLASSIFIER") ||
+      severityRank(right.severity) - severityRank(left.severity) ||
+      Date.parse(left.firstSeen ?? left.timestamp) - Date.parse(right.firstSeen ?? right.timestamp),
+  )[0];
 
   return {
     id: incident.id,
     title: incident.title,
     description: incident.summary,
     summary: incident.summary,
+    reasonSummary:
+      signalSummaries.length > 0
+        ? `${signalSummaries.slice(0, 2).join(" · ")}${signalSummaries.length > 2 ? ` · +${signalSummaries.length - 2} more` : ""}`
+        : incident.summary,
+    signalCount: incident.anomalies?.length ?? signalSummaries.length,
+    primarySignal: primarySignal
+      ? {
+          classification: primarySignal.classification,
+          label: classificationLabel(primarySignal.classification),
+          summary: primarySignal.summary,
+          source: primarySignal.source,
+        }
+      : null,
     severity: incident.severity,
     status: statusLabel(incident.status),
     rawStatus: incident.status,
@@ -287,9 +307,20 @@ export function adaptIncident(incident) {
     anomalies: incident.anomalies ?? [],
     evidence: incident.evidence ?? [],
     timeline: incident.timeline ?? [],
+    resourceSnapshots: incident.resourceSnapshots ?? [],
     /** Progress stepper derived from real incident state, not a scripted demo path. */
     progress: progressSteps(incident),
   };
+}
+
+/** Concrete observations behind an incident, retained even for older generic summaries. */
+export function incidentSignalSummaries(incident) {
+  const candidates = [
+    ...(incident?.anomalies ?? []).map((item) => item.summary),
+    ...(incident?.timeline ?? []).map((item) => item.summary),
+    ...(incident?.evidence ?? []).map((item) => item.summary),
+  ];
+  return [...new Set(candidates.map((value) => String(value ?? "").trim()).filter(Boolean))];
 }
 
 function impactSummary(resources) {
@@ -375,6 +406,11 @@ export function adaptLogRecord(record) {
     truncated: record.messageTruncated,
     traceId: record.traceId ?? null,
     namespace: record.namespace ?? null,
+    workload: record.workload ?? null,
+    service: record.service ?? null,
+    pod: record.pod ?? null,
+    container: record.container ?? null,
+    node: record.node ?? null,
     highlight: record.severity === "error" || record.severity === "fatal",
   };
 }
@@ -389,7 +425,12 @@ export function adaptKubernetesEvent(record) {
     type: record.type,
     message: record.message,
     resource: `${record.resourceKind}/${record.resourceName}`,
+    resourceKind: record.resourceKind,
+    resourceName: record.resourceName,
     namespace: record.namespace ?? null,
+    workload: record.workload ?? null,
+    pod: record.pod ?? null,
+    node: record.node ?? null,
     count: record.count,
   };
 }

@@ -25,7 +25,7 @@ after(async () => {
 });
 
 function render(query) {
-  return renderToStaticMarkup(React.createElement(SlackTicketStatus, { query }));
+  return renderToStaticMarkup(React.createElement(SlackTicketStatus, { incidentId: "incident-1", query }));
 }
 
 test("Slack ticket visibility shows safe status, channel, and external link", () => {
@@ -59,6 +59,7 @@ test("Slack ticket visibility has an explicit empty state", () => {
     refetch() {},
   });
   assert.match(html, /No Slack ticket is linked/);
+  assert.match(html, /Create Slack ticket/);
   assert.doesNotMatch(html, /Open in Slack/);
 });
 
