@@ -41,7 +41,7 @@ const MENUS = {
   /** Onsite engineer: pick a cluster, then only its operational pages. */
   engineer: {
     start: [NAV.clusters],
-    cluster: [NAV.alerts, NAV.runtime, NAV.ledger, NAV.reporting, NAV.voiceAgent],
+    cluster: [NAV.alerts, NAV.runtime, NAV.ledger, NAV.reporting],
   },
 };
 

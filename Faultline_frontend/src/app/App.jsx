@@ -111,9 +111,11 @@ export default function App() {
               <Route
                 path="voice-agent"
                 element={
-                  <RequireFeature feature={FEATURES.VOICE_AGENT}>
-                    <VoiceAgentPage />
-                  </RequireFeature>
+                  <RequireRole roles={[ROLES.ADMIN]}>
+                    <RequireFeature feature={FEATURES.VOICE_AGENT}>
+                      <VoiceAgentPage />
+                    </RequireFeature>
+                  </RequireRole>
                 }
               />
               <Route

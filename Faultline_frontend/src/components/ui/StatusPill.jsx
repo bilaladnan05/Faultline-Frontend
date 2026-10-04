@@ -22,6 +22,17 @@ const styles = {
   RESOLVED: "bg-green-50 text-green-600 border border-green-200",
   Answered: "bg-green-50 text-green-600 border border-green-200",
   "No Answer": "bg-gray-100 text-gray-500 border border-gray-200",
+  PENDING: "bg-yellow-50 text-yellow-700 border border-yellow-200",
+  SENT: "bg-blue-50 text-blue-600 border border-blue-200",
+  IN_PROGRESS: "bg-blue-50 text-blue-600 border border-blue-200",
+  ANSWERED: "bg-cyan-50 text-cyan-700 border border-cyan-200",
+  ACKNOWLEDGED: "bg-green-50 text-green-600 border border-green-200",
+  DELIVERED: "bg-green-50 text-green-600 border border-green-200",
+  COMPLETED: "bg-green-50 text-green-600 border border-green-200",
+  DECLINED: "bg-orange-50 text-orange-600 border border-orange-200",
+  FAILED: "bg-red-50 text-red-600 border border-red-200",
+  NO_ANSWER: "bg-gray-100 text-gray-500 border border-gray-200",
+  CANCELLED: "bg-gray-100 text-gray-500 border border-gray-200",
   Escalated: "bg-orange-50 text-orange-600 border border-orange-200",
 };
 

@@ -303,6 +303,12 @@ export const listContacts = (options) => apiGet("/contacts", undefined, options)
 export const createContact = (body, options) => apiPost("/contacts", body, options);
 export const updateContact = (id, body, options) =>
   apiPatch(`/contacts/${encodeURIComponent(id)}`, body, options);
+export const getVoiceAgentStatus = (options) =>
+  apiGet("/voice-agent/status", undefined, options);
+export const listVoiceAgentDeliveries = (options) =>
+  apiGet("/voice-agent/deliveries", undefined, options);
+export const requestVoiceAgentTestCall = (options) =>
+  apiPost("/voice-agent/test-call", undefined, options);
 export const listNotificationGroups = (options) =>
   apiGet("/notification-groups", undefined, options);
 export const listOnCallSchedules = (options) =>

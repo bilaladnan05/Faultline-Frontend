@@ -6,7 +6,7 @@ import { formatMillis, formatTimestamp } from "../../api/adapters";
 export default function IncidentHeader({ incident, report }) {
   return (
     <header className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-      {incident.progress.length > 0 && (
+      {(incident.progress?.length ?? 0) > 0 && (
         <div className="mb-5 pb-5 border-b border-gray-100">
           <IncidentProgress steps={incident.progress} />
         </div>
