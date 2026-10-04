@@ -31,6 +31,9 @@ export default function ReportingMetricCards({ query }) {
           </div>
         ))}
       </div>
+      {analytics.mttaMs === null && (
+        <p className="text-xs text-gray-500 mt-2">MTTA is N/A because no incident in this reporting window has a recorded acknowledgement.</p>
+      )}
     </section>
   );
 }

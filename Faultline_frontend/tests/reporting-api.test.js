@@ -4,6 +4,7 @@ import { ApiError } from "../src/api/client.js";
 import {
   createIncidentSlackTicket,
   exportIncidentReport,
+  exportSystemSummary,
   getIncidentAnalytics,
   getIncidentReport,
   getIncidentSlackTicket,
@@ -66,6 +67,20 @@ test("system summary calls its report route", async () => {
   respond({ generatedAt: "2026-09-21T00:00:00Z" });
   await getSystemSummary({ from: "2026-09-01T00:00:00Z", to: "2026-09-21T00:00:00Z" });
   assert.match(respond.last.url, /^\/api\/reports\/system-summary\?/);
+});
+
+test("system summary PDF export uses the bounded export route", async () => {
+  respond("%PDF-test", {
+    headers: {
+      "content-type": "application/pdf",
+      "content-disposition": 'attachment; filename="faultline-system-summary.pdf"',
+    },
+  });
+  const result = await exportSystemSummary({ from: "2026-09-01T00:00:00Z", to: "2026-09-21T00:00:00Z" });
+  assert.equal(result.filename, "faultline-system-summary.pdf");
+  const url = new URL(respond.last.url, "http://frontend.test");
+  assert.equal(url.pathname, "/api/reports/system-summary/export");
+  assert.equal(url.searchParams.get("from"), "2026-09-01T00:00:00.000Z");
 });
 
 for (const [format, contentType] of [["pdf", "application/pdf"], ["csv", "text/csv"]]) {

@@ -10,9 +10,10 @@ const originalFetch=globalThis.fetch;
 afterEach(()=>{globalThis.fetch=originalFetch;});
 
 test("voice-agent API functions use the administrative dashboard routes",async()=>{
-  const calls=[];globalThis.fetch=async(url,options)=>{calls.push({url:String(url),method:options.method});return new Response(JSON.stringify([]),{status:200,headers:{"content-type":"application/json"}});};
-  await getVoiceAgentStatus();await listVoiceAgentDeliveries();await requestVoiceAgentTestCall();
-  assert.deepEqual(calls,[{url:"/api/voice-agent/status",method:"GET"},{url:"/api/voice-agent/deliveries",method:"GET"},{url:"/api/voice-agent/test-call",method:"POST"}]);
+  const calls=[];globalThis.fetch=async(url,options)=>{calls.push({url:String(url),method:options.method,body:options.body});return new Response(JSON.stringify([]),{status:200,headers:{"content-type":"application/json"}});};
+  await getVoiceAgentStatus();await listVoiceAgentDeliveries();await requestVoiceAgentTestCall("+15559876543");
+  assert.deepEqual(calls.map(({url,method})=>({url,method})),[{url:"/api/voice-agent/status",method:"GET"},{url:"/api/voice-agent/deliveries",method:"GET"},{url:"/api/voice-agent/test-call",method:"POST"}]);
+  assert.deepEqual(JSON.parse(calls[2].body),{phoneNumber:"+15559876543"});
 });
 
 test("Voice Agent is an Admin-only dashboard with safe status and delivery fields",()=>{
@@ -21,7 +22,9 @@ test("Voice Agent is an Admin-only dashboard with safe status and delivery field
   const engineerMenus=sidebar.match(/engineer: \{([\s\S]*?)\n {2}\},/)?.[1];
   assert.doesNotMatch(engineerMenus,/NAV\.voiceAgent/);
   assert.match(page,/Configuration Status/);assert.match(page,/Recent Deliveries/);assert.match(page,/Test Call/);
-  assert.match(page,/Admin test-call destination/);assert.match(page,/createContact/);assert.match(page,/updateContact/);
+  assert.match(page,/aria-label="Refresh voice configuration status"/);assert.match(page,/onClick=\{status\.refetch\}/);
+  assert.match(page,/Test-call destination/);assert.match(page,/not saved as a contact/);
+  assert.doesNotMatch(page,/createContact|updateContact|listContacts|Save number/);
   assert.match(page,/maskedPhoneNumber/);assert.doesNotMatch(page,/apiKey|RETELL_API_KEY/);
-  for(const heading of ["Incident ID","SRE Name","Phone","Call Status","Timestamp"])assert.match(page,new RegExp(heading));
+  for(const heading of ["Incident ID","Recipient","Phone","Call Status","Timestamp"])assert.match(page,new RegExp(heading));
 });

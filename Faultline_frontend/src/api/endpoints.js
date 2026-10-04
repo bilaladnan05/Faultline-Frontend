@@ -5,7 +5,7 @@
  * `bucketMs`, on the metrics endpoint) so a rename on either side fails loudly instead
  * of silently dropping a filter.
  */
-import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from "./client.js";
+import { apiDelete, apiGet, apiPatch, apiPost, apiPostForm, apiPut } from "./client.js";
 
 // Reporting remains in its own contract-focused module, but is re-exported here so
 // consumers keep using the app's established one-stop endpoint surface.
@@ -170,6 +170,8 @@ export const listIncidents = (filter = {}, options) =>
 
 export const getIncident = (id, options) =>
   apiGet(`/incidents/${encodeURIComponent(id)}`, undefined, options);
+export const updateIncidentEta = (id, estimatedRestorationAt, options) =>
+  apiPatch(`/incidents/${encodeURIComponent(id)}/eta`, { estimatedRestorationAt }, options);
 
 /**
  * The incident's evidence window: stored anomaly evidence plus the telemetry
@@ -308,8 +310,20 @@ export const getVoiceAgentStatus = (options) =>
   apiGet("/voice-agent/status", undefined, options);
 export const listVoiceAgentDeliveries = (options) =>
   apiGet("/voice-agent/deliveries", undefined, options);
-export const requestVoiceAgentTestCall = (options) =>
-  apiPost("/voice-agent/test-call", undefined, options);
+export const requestVoiceAgentTestCall = (phoneNumber, options) =>
+  apiPost("/voice-agent/test-call", { phoneNumber }, options);
+export const getClusterSmsAgent = (clusterId, options) =>
+  apiGet(`/clusters/${encodeURIComponent(clusterId)}/sms-agent`, undefined, options);
+export const importClusterEndUsers = (clusterId, file, consentConfirmed, options) => {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("consentConfirmed", String(consentConfirmed));
+  return apiPostForm(`/clusters/${encodeURIComponent(clusterId)}/sms-agent/contacts/import`, form, options);
+};
+export const deleteClusterEndUser = (clusterId, contactId, options) =>
+  apiDelete(`/clusters/${encodeURIComponent(clusterId)}/sms-agent/contacts/${encodeURIComponent(contactId)}`, options);
+export const requestClusterSmsTest = (clusterId, options) =>
+  apiPost(`/clusters/${encodeURIComponent(clusterId)}/sms-agent/test`, undefined, options);
 export const listNotificationGroups = (options) =>
   apiGet("/notification-groups", undefined, options);
 export const listOnCallSchedules = (options) =>

@@ -126,7 +126,7 @@ test("the sidebar marks every page with its module and locks what the plan lacks
   const nav = sidebar.match(/const NAV = \{([\s\S]*?)\n\};/)?.[1];
   assert.ok(nav, "NAV is declared");
   const items = nav.split("\n").filter((line) => /^\s+\w+: \{ to:/.test(line));
-  assert.equal(items.length, 9);
+  assert.equal(items.length, 10);
   for (const item of items) assert.match(item, /feature: FEATURES\.\w+ \}/);
   assert.match(sidebar, /const lock = lockFor\(entitlements, feature\)/);
   assert.match(sidebar, /<Lock size=\{9\} \/> \{lock\.requiredPlanName\}/);

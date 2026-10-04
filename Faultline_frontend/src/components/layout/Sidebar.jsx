@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
-  ArrowLeftRight, Bell, Monitor, BookOpen,
+  ArrowLeftRight, Bell, Monitor, BookOpen, MessageSquareText,
   BarChart2, Lock, LogOut, Phone, Users, Server, Zap, Plug, Network
 } from "lucide-react";
 import { useAuth } from "../../auth/AuthContext";
@@ -22,6 +22,7 @@ const NAV = {
   ledger: { to: "/ledger", icon: BookOpen, label: "Incident Ledger", feature: FEATURES.INCIDENT_LEDGER },
   reporting: { to: "/reporting", icon: BarChart2, label: "Reports", feature: FEATURES.REPORTING },
   voiceAgent: { to: "/voice-agent", icon: Phone, label: "Voice Agent", feature: FEATURES.VOICE_AGENT },
+  smsAgent: { to: "/sms-agent", icon: MessageSquareText, label: "SMS Agent", feature: FEATURES.VOICE_AGENT },
   team: { to: "/team", icon: Users, label: "Team & Roles", feature: FEATURES.TEAM_MANAGEMENT },
 };
 
@@ -35,7 +36,7 @@ const MENUS = {
     start: [NAV.clusters, NAV.onboarding, NAV.team, NAV.integrations],
     cluster: [
       NAV.alerts, NAV.integrations, NAV.runtime,
-      NAV.ledger, NAV.reporting, NAV.voiceAgent, NAV.team,
+      NAV.ledger, NAV.reporting, NAV.voiceAgent, NAV.smsAgent, NAV.team,
     ],
   },
   /** Onsite engineer: pick a cluster, then only its operational pages. */

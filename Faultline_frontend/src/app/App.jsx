@@ -14,6 +14,7 @@ import ReportingPage from "../pages/ReportingPage";
 import RuntimeMonitoringPage from "../pages/RuntimeMonitoringPage";
 import TeamRolesPage from "../pages/TeamRolesPage";
 import VoiceAgentPage from "../pages/VoiceAgentPage";
+import SmsAgentPage from "../pages/SmsAgentPage";
 import { ProjectProvider } from "../context/ProjectContext";
 import ChangePasswordPage from "../pages/ChangePasswordPage";
 import ForbiddenPage from "../pages/ForbiddenPage";
@@ -118,6 +119,7 @@ export default function App() {
                   </RequireRole>
                 }
               />
+              <Route path="sms-agent" element={<RequireRole roles={[ROLES.ADMIN]}><RequireFeature feature={FEATURES.VOICE_AGENT}><SmsAgentPage /></RequireFeature></RequireRole>} />
               <Route
                 path="team"
                 element={

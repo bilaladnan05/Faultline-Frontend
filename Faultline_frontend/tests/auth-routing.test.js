@@ -60,7 +60,7 @@ test("each role starts on its own menu and switches to a cluster menu on Manage"
   assert.deepEqual(menu(sidebar, "owner", "start"), ["clusters", "onboarding", "team", "integrations"]);
   // No separate incidents list: the Incident Ledger is the list.
   assert.deepEqual(menu(sidebar, "owner", "cluster"), [
-    "alerts", "integrations", "runtime", "ledger", "reporting", "voiceAgent", "team",
+    "alerts", "integrations", "runtime", "ledger", "reporting", "voiceAgent", "smsAgent", "team",
   ]);
   assert.deepEqual(menu(sidebar, "engineer", "start"), ["clusters"]);
   assert.deepEqual(menu(sidebar, "engineer", "cluster"), [

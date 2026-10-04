@@ -127,14 +127,15 @@ async function request(method, path, { params, body, signal, auth = true } = {})
 
   let response;
   try {
+    const isForm = typeof FormData !== "undefined" && body instanceof FormData;
     response = await fetch(url, {
       method,
       headers: {
         Accept: "application/json",
-        ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+        ...(body !== undefined && !isForm ? { "Content-Type": "application/json" } : {}),
         ...(auth && accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       },
-      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+      ...(body !== undefined ? { body: isForm ? body : JSON.stringify(body) } : {}),
       signal: controller.signal,
     });
   } catch (cause) {
@@ -232,6 +233,8 @@ export const apiGet = (path, params, options = {}) =>
 
 export const apiPost = (path, body, options = {}) =>
   request("POST", path, { ...options, body: body ?? {} });
+export const apiPostForm = (path, form, options = {}) =>
+  request("POST", path, { ...options, body: form });
 
 export const apiPatch = (path, body, options = {}) =>
   request("PATCH", path, { ...options, body: body ?? {} });
