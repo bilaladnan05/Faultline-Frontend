@@ -20,7 +20,7 @@ export const getSystemInfo = (options) => apiGet("/system/info", undefined, opti
 /* ------------------------------------------------------------------- auth */
 
 /**
- * Exchanges credentials for an access token.
+ * Exchanges credentials for a server-tracked HttpOnly cookie session.
  *
  * `auth: false` because there is no session yet; sending a stale token here would be
  * meaningless and, if it were expired, would trip the global sign-out handler mid-login.
@@ -30,7 +30,7 @@ export const login = (email, password, options) =>
 
 export const logout = (options) => apiPost("/auth/logout", undefined, options);
 
-/** The identity behind the current token, re-read by the API from storage. */
+/** The identity behind the current session, re-read by the API from storage. */
 export const getCurrentUser = (options) => apiGet("/auth/me", undefined, options);
 
 /* ---------------------------------------------------------------- billing */

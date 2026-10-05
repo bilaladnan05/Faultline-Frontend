@@ -1,8 +1,8 @@
 /**
  * HTTP client for the Faultline API (faultline-backend/apps/api).
  *
- * Every request carries the bearer token the session holds, and the API decides what it
- * may see. The status codes this layer distinguishes are the ones the API uses to say
+ * Browser requests carry the API's HttpOnly session cookie, and the API decides what
+ * it may see. The status codes this layer distinguishes are the ones the API uses to say
  * different things, and callers render different things for each, so the status is kept
  * on the thrown error rather than collapsed into a message:
  *
@@ -128,6 +128,7 @@ async function request(method, path, { params, body, signal, auth = true } = {})
   try {
     response = await fetch(url, {
       method,
+      credentials: "include",
       headers: {
         Accept: "application/json",
         ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
