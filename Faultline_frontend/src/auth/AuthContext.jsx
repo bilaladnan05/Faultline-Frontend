@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { clearToken, setToken, setUnauthorizedHandler } from "../api/client";
+import { setUnauthorizedHandler } from "../api/client";
 import {
   changePassword as changePasswordRequest,
   getCurrentUser,
@@ -15,25 +15,9 @@ import { hasPermission, hasProjectAccess, hasRole, isAdmin } from "./roles";
 const AuthContext = createContext(null);
 
 /**
- * Where the session lives.
- *
- * `sessionStorage`, so the token dies with the tab and is not shared between them. It
- * is still readable by any script running on this origin, which is the known cost of a
- * bearer token in a SPA; the backend is written so that an httpOnly session cookie can
- * replace this without the rest of the app noticing.
+ * Authentication is held by the API in an HttpOnly cookie. JavaScript keeps only the
+ * current user's non-secret presentation data, and re-reads it after every page load.
  */
-const TOKEN_KEY = "fl_token";
-const USER_KEY = "fl_user";
-
-function readStored(key) {
-  try {
-    const raw = sessionStorage.getItem(key);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
 /**
  * The account's tier, or null when it cannot be read. Null means "unknown", which the
  * UI treats as "offer the page and let the API decide" rather than hiding everything.
@@ -46,32 +30,12 @@ async function readEntitlements(signal) {
   }
 }
 
-function persist(token, user) {
-  try {
-    if (token) sessionStorage.setItem(TOKEN_KEY, JSON.stringify(token));
-    else sessionStorage.removeItem(TOKEN_KEY);
-    if (user) sessionStorage.setItem(USER_KEY, JSON.stringify(user));
-    else sessionStorage.removeItem(USER_KEY);
-  } catch {
-    // A browser refusing storage is not a reason to fail the login; the session simply
-    // will not survive a reload.
-  }
-}
-
 export function AuthProvider({ children }) {
-  const [token, setTokenState] = useState(() => readStored(TOKEN_KEY));
-  const [user, setUser] = useState(() => readStored(USER_KEY));
-  // Held in memory only: it is re-read with the identity on every load, so a plan
-  // change shows up on the next visit without anyone clearing storage.
+  const [user, setUser] = useState(null);
   const [entitlements, setEntitlements] = useState(null);
-  // A stored session is unverified until `/auth/me` confirms it, so the first paint
-  // waits rather than briefly showing an app the token may no longer open.
-  const [loading, setLoading] = useState(() => !!readStored(TOKEN_KEY));
+  const [loading, setLoading] = useState(true);
 
   const signOut = useCallback((reason) => {
-    clearToken();
-    persist(null, null);
-    setTokenState(null);
     setUser(null);
     setEntitlements(null);
     if (reason) {
@@ -83,42 +47,34 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  // The API layer calls this when any request comes back 401 — an expired token, a
-  // disabled account, a rotated signing secret. One place, so every screen reacts the
-  // same way instead of each handling it.
   useEffect(() => {
     setUnauthorizedHandler(() => signOut("expired"));
     return () => setUnauthorizedHandler(null);
   }, [signOut]);
 
+  // The browser sends the HttpOnly cookie itself; `/auth/me` determines whether a
+  // server-side session survived the reload and refreshes current role/assignment data.
   useEffect(() => {
-    if (token) setToken(token);
-  }, [token]);
-
-  // Re-reads the identity on mount so role and project assignments reflect what the
-  // server thinks now, not what it thought when the token was issued.
-  useEffect(() => {
-    if (!token) return undefined;
     let cancelled = false;
     const controller = new AbortController();
-    setToken(token);
-    getCurrentUser({ signal: controller.signal })
+    // Remove credentials left by versions that stored bearer tokens in this tab.
+    try {
+      sessionStorage.removeItem("fl_token");
+      sessionStorage.removeItem("fl_user");
+    } catch {
+      /* Storage may be disabled. */
+    }
+    getCurrentUser({ signal: controller.signal, auth: false })
       .then(async (fresh) => {
         if (cancelled) return;
         setUser(fresh);
-        persist(token, fresh);
-        // The tier is read with the identity, so the first render already knows which
-        // modules to offer. An account that still owes a password change cannot read it
-        // yet; `changePassword` fetches it once the password is replaced.
         if (fresh.mustChangePassword) return;
         const granted = await readEntitlements(controller.signal);
         if (!cancelled) setEntitlements(granted);
       })
       .catch((error) => {
-        if (cancelled || error?.name === "AbortError") return;
-        // 401 has already signed the user out through the handler above. Anything else
-        // is the API being unreachable, which must not destroy a valid session.
-        if (error?.status === 401) return;
+        if (cancelled || error?.name === "AbortError" || error?.status === 401) return;
+        // A network outage must not be mistaken for an explicit logout.
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -127,18 +83,14 @@ export function AuthProvider({ children }) {
       cancelled = true;
       controller.abort();
     };
-    // Runs for each new token; `signOut` is stable.
-  }, [token]);
+  }, []);
 
   const adoptSession = useCallback(async (session) => {
-    setToken(session.accessToken);
     // Before the session is adopted, so the first screen after sign-in is already
     // drawn for the right tier rather than redrawn a moment later.
     const granted = session.user?.mustChangePassword ? null : await readEntitlements();
     setEntitlements(granted);
-    setTokenState(session.accessToken);
     setUser(session.user);
-    persist(session.accessToken, session.user);
     setLoading(false);
   }, []);
 
@@ -158,9 +110,8 @@ export function AuthProvider({ children }) {
   const refreshUser = useCallback(async () => {
     const fresh = await getCurrentUser();
     setUser(fresh);
-    persist(token, fresh);
     return fresh;
-  }, [token]);
+  }, []);
 
   /**
    * Replaces the password and, for a provisioned admin, ends the confinement.
@@ -171,22 +122,16 @@ export function AuthProvider({ children }) {
    */
   const changePassword = useCallback(async (currentPassword, newPassword) => {
     const refreshed = await changePasswordRequest(currentPassword, newPassword);
-    setToken(refreshed.accessToken);
-    // Readable only now that the confinement has lifted.
     setEntitlements(await readEntitlements());
-    setTokenState(refreshed.accessToken);
     setUser(refreshed.user);
-    persist(refreshed.accessToken, refreshed.user);
     return refreshed.user;
   }, []);
 
   const signOutRemote = useCallback(async () => {
-    // Best effort: the audit record matters, but a failed call must not strand the
-    // user in a session they asked to leave.
     try {
       await logoutRequest();
     } catch {
-      /* ignored on purpose */
+      /* Local state still ends even if the network is unavailable. */
     }
     signOut();
   }, [signOut]);
@@ -194,15 +139,8 @@ export function AuthProvider({ children }) {
   const value = useMemo(
     () => ({
       user,
-      token,
       loading,
-      isAuthenticated: !!token && !!user,
-      /**
-       * The account holds a temporary password it has not replaced.
-       *
-       * Used to route the user to the change-password screen. It is a convenience: the
-       * API refuses every other route for such an account regardless of what this says.
-       */
+      isAuthenticated: !!user,
       mustChangePassword: user?.mustChangePassword === true,
       mfaEnrollmentRequired: user?.mfaEnrollmentRequired === true,
       signIn,
@@ -219,7 +157,7 @@ export function AuthProvider({ children }) {
       /** Whether the tier includes a module. A courtesy: the API enforces the same rule. */
       hasFeature: (feature) => planIncludes(entitlements, feature),
     }),
-    [user, token, loading, entitlements, signIn, completeMfaSignIn, refreshUser, signOutRemote, changePassword],
+    [user, loading, entitlements, signIn, completeMfaSignIn, refreshUser, signOutRemote, changePassword],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

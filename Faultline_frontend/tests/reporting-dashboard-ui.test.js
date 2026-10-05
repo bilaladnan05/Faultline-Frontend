@@ -49,7 +49,8 @@ const summaryData = {
   period: analyticsData.range,
   health: { available: true, overallStatus: "degraded", healthyServices: 12, degradedServices: 2, unhealthyServices: 1 },
   incidents: { total: 38, critical: 6, resolved: 34, unresolved: 4 },
-  performance: { mttrMs: 742_000, mttaMs: 83_000 },
+  performance: { mttrMs: 742_000, mttaMs: 83_000, resolutionRate: 0.8947 },
+  incidentsBySeverity: analyticsData.incidentsBySeverity,
   topAffectedServices: [
     { service: "payment-service", incidentCount: 8 },
     { service: "checkout-service", incidentCount: 6 },
@@ -70,6 +71,7 @@ test("resolved incident count renders", () => assert.match(renderMetrics(), /Res
 test("critical incident count renders", () => assert.match(renderMetrics(), /Critical Incidents[\s\S]*6/));
 test("MTTR renders the backend duration in the existing format", () => assert.match(renderMetrics(), /MTTR[\s\S]*00:12:22/));
 test("null MTTR renders N/A", () => assert.match(renderMetrics({ ...analyticsData, mttrMs: null }), /MTTR[\s\S]*N\/A/));
+test("null MTTA explains that acknowledgements are required", () => assert.match(renderMetrics({ ...analyticsData, mttaMs: null }), /no incident[\s\S]*recorded acknowledgement/i));
 test("MTTA renders the backend duration", () => assert.match(renderMetrics(), /MTTA[\s\S]*00:01:23/));
 test("resolution rate renders from the backend ratio", () => assert.match(renderMetrics(), /Resolution Rate[\s\S]*89\.5%/));
 
@@ -79,6 +81,8 @@ test("system health and backend service counts render", () => {
   assert.match(html, /Degraded/);
   assert.match(html, /Healthy[\s\S]*12/);
   assert.match(html, /Unhealthy[\s\S]*1/);
+  assert.match(html, /Reporting window/);
+  assert.match(html, /Summary generated/);
 });
 
 test("unavailable health is explicit rather than healthy", () => {

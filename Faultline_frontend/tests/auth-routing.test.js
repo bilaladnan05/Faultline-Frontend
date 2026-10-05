@@ -61,11 +61,11 @@ test("each role starts on its own menu and switches to a cluster menu on Manage"
   assert.deepEqual(menu(sidebar, "owner", "start"), ["clusters", "onboarding", "team", "audit", "integrations", "security"]);
   // No separate incidents list: the Incident Ledger is the list.
   assert.deepEqual(menu(sidebar, "owner", "cluster"), [
-    "alerts", "integrations", "runtime", "ledger", "reporting", "voiceAgent", "team", "audit", "security",
+    "alerts", "integrations", "runtime", "ledger", "reporting", "voiceAgent", "smsAgent", "team", "audit", "security",
   ]);
   assert.deepEqual(menu(sidebar, "engineer", "start"), ["clusters", "security"]);
   assert.deepEqual(menu(sidebar, "engineer", "cluster"), [
-    "alerts", "runtime", "ledger", "reporting", "voiceAgent", "security",
+    "alerts", "runtime", "ledger", "reporting", "security",
   ]);
   assert.doesNotMatch(sidebar, /to: "\/incidents"/);
   assert.match(sidebar, /const menu = isAdmin \? MENUS\.owner : MENUS\.engineer/);

@@ -68,6 +68,22 @@ export const getIncidentTrends = (filters, options) => {
 export const getSystemSummary = (filters, options) =>
   apiGet("/reports/system-summary", serializeReportRange(filters, { required: true }), options);
 
+/** Downloads the backend-generated PDF for the bounded reporting window. */
+export async function exportSystemSummary(filters, options) {
+  const result = await apiGetBlob(
+    "/reports/system-summary/export",
+    serializeReportRange(filters, { required: true }),
+    { ...options, accept: "application/pdf" },
+  );
+  if (!matchesExportContentType("pdf", result.contentType)) {
+    throw new ApiError("The API returned an unexpected content type for PDF export", {
+      status: 502,
+      body: { contentType: result.contentType },
+    });
+  }
+  return { ...result, filename: result.filename ?? "faultline-system-summary.pdf" };
+}
+
 /**
  * Fetches an attachment but deliberately does not trigger a browser download.
  * @param {string} incidentId
