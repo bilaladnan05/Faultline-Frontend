@@ -5,7 +5,66 @@
  * `bucketMs`, on the metrics endpoint) so a rename on either side fails loudly instead
  * of silently dropping a filter.
  */
-import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from "./client";
+import { apiDelete, apiGet, apiPatch, apiPost, apiPostForm, apiPut } from "./client.js";
+
+// Reporting remains in its own contract-focused module, but is re-exported here so
+// consumers keep using the app's established one-stop endpoint surface.
+export {
+  createIncidentSlackTicket,
+  exportIncidentReport,
+  getIncidentAnalytics,
+  getIncidentReport,
+  getIncidentSlackTicket,
+  getIncidentTrends,
+  getSystemSummary,
+  INCIDENT_TREND_BUCKETS,
+  REPORT_EXPORT_FORMATS,
+} from "./reporting.js";
+
+/* ---------------------------------------------------------- authentication */
+
+/** Exchanges credentials for the API's server-tracked HttpOnly cookie session. */
+export const login = (email, password, options = {}) =>
+  apiPost("/auth/login", { email, password }, { ...options, auth: false });
+
+/** Revalidates the cookie session and refreshes the user's current assignments. */
+export const getCurrentUser = (options) => apiGet("/auth/me", undefined, options);
+
+/** Records a best-effort logout before the auth context discards the local token. */
+export const logout = (options) => apiPost("/auth/logout", undefined, options);
+
+/** Changes the caller's password and returns the backend's refreshed session. */
+export const changePassword = (currentPassword, newPassword, options) =>
+  apiPost(
+    "/auth/change-password",
+    { currentPassword, newPassword },
+    options,
+  );
+
+/* --------------------------------------------------------------- billing */
+
+/** Public plan catalog rendered by the landing-page subscription flow. */
+export const listPlans = (options = {}) =>
+  apiGet("/billing/plans", undefined, { ...options, auth: false });
+
+/** Starts hosted checkout; account provisioning happens after signed payment. */
+export const createCheckout = (body, options = {}) =>
+  apiPost("/billing/checkout", body, { ...options, auth: false });
+
+/**
+ * The signed-in account's tier: its plan, the modules it may open, the ones locked and
+ * which tier unlocks each, and allowances such as the cluster limit.
+ */
+export const getEntitlements = (options) =>
+  apiGet("/billing/entitlements", undefined, options);
+
+/** Reads the payment provider's status without exposing account credentials. */
+export const getCheckoutStatus = (sessionId, options = {}) =>
+  apiGet(
+    "/billing/checkout/status",
+    { sessionId },
+    { ...options, auth: false },
+  );
 
 /* ---------------------------------------------------------------- system */
 
@@ -17,139 +76,76 @@ export const getReadiness = (options) => apiGet("/health/ready", undefined, opti
 
 export const getSystemInfo = (options) => apiGet("/system/info", undefined, options);
 
-/* ------------------------------------------------------------------- auth */
-
-/**
- * Exchanges credentials for a server-tracked HttpOnly cookie session.
- *
- * `auth: false` because there is no session yet; sending a stale token here would be
- * meaningless and, if it were expired, would trip the global sign-out handler mid-login.
- */
-export const login = (email, password, options) =>
-  apiPost("/auth/login", { email, password }, { ...options, auth: false });
-
-export const logout = (options) => apiPost("/auth/logout", undefined, options);
-
-/** The identity behind the current session, re-read by the API from storage. */
-export const getCurrentUser = (options) => apiGet("/auth/me", undefined, options);
-
-/* ---------------------------------------------------------------- billing */
-
-/**
- * Public: the plans the landing page and /subscribe render.
- *
- * `auth: false` because the purchaser has no account yet - that is the entire point
- * of this flow, and sending a stale token would be meaningless.
- */
-export const listPlans = (options) =>
-  apiGet("/billing/plans", undefined, { ...options, auth: false });
-
-/**
- * Public: opens a hosted checkout and returns the URL to send the browser to.
- *
- * Nothing is created by this call. The account is provisioned only when the payment
- * provider tells the backend, over a signed webhook, that money actually moved.
- */
-export const createCheckout = (purchase, options) =>
+/** Clusters explicitly registered by the onboarding process. */
+export const listClusters = (options) => apiGet("/clusters", undefined, options);
+export const getClusterSlackChannels = (id, options) =>
+  apiGet(
+    `/clusters/${encodeURIComponent(id)}/slack-channels`,
+    undefined,
+    options,
+  );
+export const updateClusterSlackMapping = (id, slackChannelId, options) =>
+  apiPatch(
+    `/clusters/${encodeURIComponent(id)}/slack-mapping`,
+    { slackChannelId },
+    options,
+  );
+export const getClusterSres = (id, options) =>
+  apiGet(`/clusters/${encodeURIComponent(id)}/sres`, undefined, options);
+export const assignClusterSre = (id, userId, options) =>
   apiPost(
-    "/billing/checkout",
-    {
-      email: purchase.email,
-      plan: purchase.plan,
-      fullName: purchase.fullName,
-      username: purchase.username,
-    },
-    { ...options, auth: false },
+    `/clusters/${encodeURIComponent(id)}/sres`,
+    { userId },
+    options,
+  );
+export const unassignClusterSre = (id, userId, options) =>
+  apiDelete(
+    `/clusters/${encodeURIComponent(id)}/sres/${encodeURIComponent(userId)}`,
+    options,
   );
 
-/**
- * What the signed-in account's plan unlocks.
- *
- * `{ plan, planName, enforced, features: [{id,label}], locked: [{id,label,requiredPlan}] }`.
- * The console uses it to decide what to offer; the API enforces the same decision on
- * every gated route, so hiding a module here is courtesy, never the control.
- *
- * `enforced: false` means the deployment sells nothing and withholds nothing - treat
- * every module as available rather than inferring a tier.
- */
-export const getEntitlements = (options) =>
-  apiGet("/billing/entitlements", undefined, options);
+/** Starts the server-side Kubernetes onboarding command and returns its background job. */
+export const startClusterOnboarding = (clusterName, controlPlaneIp, options) =>
+  apiPost("/cluster-onboarding", { clusterName, controlPlaneIp }, options);
 
-/** Public: what the return page reports. Never carries credentials. */
-export const getCheckoutStatus = (sessionId, options) =>
-  apiGet("/billing/checkout/status", { sessionId }, { ...options, auth: false });
+/** Reads progress emitted by the existing cluster:onboard script. */
+export const getClusterOnboarding = (id, options) =>
+  apiGet(`/cluster-onboarding/${encodeURIComponent(id)}`, undefined, options);
 
-/**
- * Replaces the caller's own password.
- *
- * Reachable while the account is confined - it is the way out - and afterwards for
- * ordinary password changes. Returns a refreshed session.
- */
-export const changePassword = (currentPassword, newPassword, options) =>
-  apiPost("/auth/change-password", { currentPassword, newPassword }, options);
-
-/* ---------------------------------------------------------------- projects */
-
-/**
- * The projects the caller may see.
- *
- * The API scopes this by assignment, so an Onsite Engineer's list is already only their
- * projects - the client does no filtering of its own and must not start to, or the two
- * would be able to disagree.
- */
-export const listProjects = (options) => apiGet("/projects", undefined, options);
-
-export const getProject = (projectId, options) =>
-  apiGet(`/projects/${encodeURIComponent(projectId)}`, undefined, options);
-
-/** Admin only; the API refuses anyone else. */
-export const createProject = (project, options) =>
-  apiPost("/projects", project, options);
-
-export const updateProject = (projectId, changes, options) =>
-  apiPatch(`/projects/${encodeURIComponent(projectId)}`, changes, options);
-
-export const deleteProject = (projectId, options) =>
-  apiDelete(`/projects/${encodeURIComponent(projectId)}`, options);
+/** Removes Faultline collectors and the owned cluster registration in the background. */
+export const startClusterUninstall = (clusterId, options) =>
+  apiDelete(
+    `/cluster-onboarding/clusters/${encodeURIComponent(clusterId)}`,
+    options,
+  );
 
 /* ------------------------------------------------------- user management */
 
+/** Admin only. Every account, with the project assignments the caller can see. */
 export const listUsers = (options) => apiGet("/admin/users", undefined, options);
 
+/**
+ * `projectIds` are granted in the same request, so a new engineer never sees nothing.
+ * An onsite engineer also needs `phoneNumber` (E.164, optional `smsEnabled`): the API
+ * links the voice-enabled contact Retell calls, and refuses the account without it.
+ */
 export const createUser = (user, options) => apiPost("/admin/users", user, options);
 
+/** Name, role, status and password; the API has no route that deletes a user. */
 export const updateUser = (userId, changes, options) =>
   apiPatch(`/admin/users/${encodeURIComponent(userId)}`, changes, options);
 
-/** Assignment is the single source of truth for an engineer's project access. */
-export const assignProject = (userId, projectId, environments, options) =>
+/** Project assignment is the only thing that lets an engineer see a cluster. */
+export const assignProject = (userId, projectId, options) =>
   apiPut(
     `/admin/users/${encodeURIComponent(userId)}/projects/${encodeURIComponent(projectId)}`,
-    { environments: environments ?? [] },
+    undefined,
     options,
   );
 
 export const unassignProject = (userId, projectId, options) =>
   apiDelete(
     `/admin/users/${encodeURIComponent(userId)}/projects/${encodeURIComponent(projectId)}`,
-    options,
-  );
-
-/* ---------------------------------------------------------------- audit */
-
-export const listAuditLog = (filter = {}, options) =>
-  apiGet(
-    "/admin/audit",
-    {
-      userId: filter.userId,
-      action: filter.action,
-      resourceType: filter.resourceType,
-      resourceId: filter.resourceId,
-      outcome: filter.outcome,
-      since: filter.since,
-      until: filter.until,
-      limit: filter.limit,
-    },
     options,
   );
 
@@ -174,6 +170,8 @@ export const listIncidents = (filter = {}, options) =>
 
 export const getIncident = (id, options) =>
   apiGet(`/incidents/${encodeURIComponent(id)}`, undefined, options);
+export const updateIncidentEta = (id, estimatedRestorationAt, options) =>
+  apiPatch(`/incidents/${encodeURIComponent(id)}/eta`, { estimatedRestorationAt }, options);
 
 /**
  * The incident's evidence window: stored anomaly evidence plus the telemetry
@@ -185,6 +183,15 @@ export const getIncidentEvidence = (id, { leadMs, trailMs, limit } = {}, options
     { leadMs, trailMs, limit },
     options,
   );
+
+export const acknowledgeIncident = (id, body = {}, options) =>
+  apiPost(`/incidents/${encodeURIComponent(id)}/acknowledge`, body, options);
+
+export const getIncidentCommunications = (id, options) =>
+  apiGet(`/incidents/${encodeURIComponent(id)}/communications`, undefined, options);
+
+export const getIncidentNotificationAttempts = (id, options) =>
+  apiGet(`/incidents/${encodeURIComponent(id)}/notification-attempts`, undefined, options);
 
 /* ------------------------------------------------------------- telemetry */
 
@@ -292,6 +299,41 @@ export const getBaseline = (resourceId, metricName, { window } = {}, options) =>
     { window },
     options,
   );
+
+/* --------------------------------------------------------- notifications */
+
+export const listContacts = (options) => apiGet("/contacts", undefined, options);
+export const createContact = (body, options) => apiPost("/contacts", body, options);
+export const updateContact = (id, body, options) =>
+  apiPatch(`/contacts/${encodeURIComponent(id)}`, body, options);
+export const getVoiceAgentStatus = (options) =>
+  apiGet("/voice-agent/status", undefined, options);
+export const listVoiceAgentDeliveries = (options) =>
+  apiGet("/voice-agent/deliveries", undefined, options);
+export const requestVoiceAgentTestCall = (phoneNumber, options) =>
+  apiPost("/voice-agent/test-call", { phoneNumber }, options);
+export const getClusterSmsAgent = (clusterId, options) =>
+  apiGet(`/clusters/${encodeURIComponent(clusterId)}/sms-agent`, undefined, options);
+export const importClusterEndUsers = (clusterId, file, consentConfirmed, options) => {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("consentConfirmed", String(consentConfirmed));
+  return apiPostForm(`/clusters/${encodeURIComponent(clusterId)}/sms-agent/contacts/import`, form, options);
+};
+export const deleteClusterEndUser = (clusterId, contactId, options) =>
+  apiDelete(`/clusters/${encodeURIComponent(clusterId)}/sms-agent/contacts/${encodeURIComponent(contactId)}`, options);
+export const requestClusterSmsTest = (clusterId, options) =>
+  apiPost(`/clusters/${encodeURIComponent(clusterId)}/sms-agent/test`, undefined, options);
+export const listNotificationGroups = (options) =>
+  apiGet("/notification-groups", undefined, options);
+export const listOnCallSchedules = (options) =>
+  apiGet("/on-call/schedules", undefined, options);
+export const getSlackIntegration = (options) =>
+  apiGet("/integrations/slack", undefined, options);
+export const createSlackIntegration = (body, options) =>
+  apiPost("/integrations/slack", body, options);
+export const updateSlackIntegration = (body, options) =>
+  apiPatch("/integrations/slack", body, options);
 
 /** Windows and severities the API accepts, for building filter controls. */
 export const BASELINE_WINDOWS = ["1h", "6h", "24h", "7d"];

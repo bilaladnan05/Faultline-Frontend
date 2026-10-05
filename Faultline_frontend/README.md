@@ -1,135 +1,16 @@
-# Faultline Frontend
+# React + Vite
 
-React + Vite dashboard for the Faultline API (`faultline-backend/apps/api`).
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-## Running it
+Currently, two official plugins are available:
 
-1. **Start the API** (from the backend repo):
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
 
-   ```bash
-   npm run start -w @faultline/api      # listens on http://127.0.0.1:3000
-   ```
+## React Compiler
 
-   It needs PostgreSQL and ClickHouse, per `faultline-backend/compose.infrastructure.yml`.
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
 
-2. **Start the frontend**:
+## Expanding the ESLint configuration
 
-   ```bash
-   cp .env.example .env      # first time only
-   npm install
-   npm run dev               # http://127.0.0.1:5173
-   ```
-
-3. Log in, then pick a cluster on **Deployments** — the rest of the workspace is scoped to it.
-
-### Configuration
-
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `VITE_API_BASE_URL` | `/api` | What the browser calls. |
-| `VITE_API_PROXY_TARGET` | `http://127.0.0.1:3000` | Where the dev server forwards `/api`. |
-| `VITE_API_TIMEOUT_MS` | `20000` | Per-request timeout. |
-| `VITE_API_POLL_MS` | `15000` | Poll interval for live views. |
-
-The API enables no CORS, so requests must be same-origin. In development Vite proxies
-`/api/*` to the API and strips the prefix (see `vite.config.js`); in production serve this
-app behind the same origin as the API, or set `VITE_API_BASE_URL` to an absolute URL
-**only** if that deployment allows this origin.
-
-## Signing in, roles and what each role sees
-
-There are two roles, `admin` and `onsiteengineer`, and the second only reaches the
-projects an administrator has assigned to them.
-
-Sign in with an account the backend knows about. There is no demo bypass: the old
-`sessionStorage.setItem("fl_auth", "ok")` flow is gone, because anyone could grant
-themselves a session from the browser console. Create the first account with
-`npm run user:create` in `faultline-backend` — see its
-`docs/AUTHORIZATION.md`.
-
-| Piece | Where | Does what |
-|---|---|---|
-| `src/auth/roles.js` | roles, permissions, `hasProjectAccess` | mirrors `@faultline/auth` on the backend |
-| `src/auth/AuthContext.jsx` | the session | login, logout, `can()`, `canAccessProject()`; re-reads `/auth/me` on load |
-| `src/auth/guards.jsx` | route guards | `RequireAuth`, `RequireRole`, `RequireProjectAccess` |
-| `src/api/client.js` | every request | attaches the bearer token; a `401` anywhere ends the session once |
-
-**These guards are not the security boundary.** They keep the UI honest — nobody is
-offered a door that will be slammed in their face — but the API applies the same role
-and assignment rules to every request it receives. Deleting every guard in this app
-would not expose one row of another team's project: editing `/projects/project-a` to
-`/projects/project-b` in the address bar lands on `/forbidden`, and the `GET
-/api/projects/project-b` behind it answers `403` regardless.
-
-Navigation is filtered the same way: each item in `Sidebar.jsx` declares the permission
-it needs, so an Onsite Engineer sees My Projects, My Incidents and Remediation, and no
-administration links at all.
-
-## Buying a subscription (public)
-
-The landing page's primary call to action is **Get started / Subscribe now**, which
-goes to `/subscribe`. That page, and the `/payment/success` and `/payment/cancel`
-pages it returns to, are fully public — the purchaser has no account yet, because
-creating one is what buying does.
-
-Card details are never collected here: the form opens a hosted Stripe Checkout and
-hands the browser over. The account is created only when Stripe tells the backend, over
-a signed webhook, that the payment settled — a browser landing on `/payment/success`
-proves nothing and creates nothing.
-
-The purchaser is emailed a username and a temporary password. When they sign in,
-`mustChangePassword` is true, so `RequirePasswordChanged` holds them on
-`/change-password` and the API refuses every other route until they choose a password.
-See `faultline-backend/docs/SUBSCRIPTIONS.md`.
-
-| Page | Route | Who |
-|---|---|---|
-| `SubscribePage` | `/subscribe` | anyone |
-| `PaymentReturnPage` | `/payment/success`, `/payment/cancel` | anyone |
-| `ChangePasswordPage` | `/change-password` | any signed-in user; forced when confined |
-
-## How the frontend talks to the API
-
-All network code lives in `src/api/`:
-
-- **`client.js`** — the fetch wrapper. Builds query strings the way the backend validators
-  read them (arrays become comma-joined), applies the timeout, and normalises failures
-  into `ApiError` with the status intact, because the API's statuses mean different
-  things: `400` a rejected filter, `403` a cluster outside the configured query scope,
-  `404` missing, `503` storage down, `0` the API unreachable.
-- **`endpoints.js`** — one function per route, with parameter names mirroring the backend
-  validators exactly (note the metrics endpoint takes `bucket`, not `bucketMs`).
-- **`adapters.js`** — maps backend objects onto the shapes the components render, and
-  mirrors `encodeTelemetryResourceId` so an incident's resource can be used directly in
-  the `/resources/:id/timeline` and `/baselines/:id/:metric` routes.
-- **`window.js`** — time windows. Every telemetry read must name a bounded window, and the
-  ranges offered here stay inside the API's maxima (24h for logs and events, 7d for
-  metrics) so a picker can't build a request the API will reject.
-
-`src/hooks/useApiResource.js` does the fetching: a refresh never clears data already on
-screen, and an in-flight request is aborted when its inputs change or the view unmounts.
-`src/components/ui/AsyncState.jsx` renders loading, empty, and per-status error states.
-
-### Page → endpoint map
-
-| Page | Endpoints |
-| --- | --- |
-| Deployments | `GET /incidents` (cluster discovery), `/health/ready`, `/system/info` |
-| Dashboard | `GET /incidents`, `/telemetry/metrics`, `/health/ready` |
-| Incidents | `GET /incidents` with `cluster`/`namespace`/`status`/`severity`/`classification` |
-| Incident detail | `GET /incidents/:id`, `/incidents/:id/evidence`, `/baselines` |
-| Alerts | `GET /incidents` (unresolved only) |
-| Runtime | `GET /telemetry/logs`, `/telemetry/kubernetes-events`, `/health/ready` |
-| Ledger | `GET /incidents` (timeline entries, merged) |
-| Reports | `GET /incidents` (analytics + JSON/CSV export) |
-
-### What is still mock data
-
-The API is read-only and has no endpoint for these, so they remain on `src/mocks/` and are
-labelled in the UI where they appear: PR issuance (diff, CI checks, submission),
-Integrations, Team & Roles, Subscription, Voice Agent, Settings, login/MFA, and the
-code-quality / Slack / stored-report sections of Reports.
-
-There is also no cluster registry in the API, so **Deployments** derives its cluster list
-from the clusters that recorded incidents reference. A cluster with no incidents yet can be
-opened by entering its ID in the "Open a cluster by ID" box.
+If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.

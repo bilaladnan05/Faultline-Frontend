@@ -1,0 +1,264 @@
+.deployments-page {
+  flex: 1;
+  overflow-y: auto;
+  padding: 22px 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.deployments-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.page-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 800;
+  color: #172033;
+  letter-spacing: -0.8px;
+}
+
+.page-subtitle {
+  margin-top: 4px;
+  font-size: 13.5px;
+  color: #71809a;
+  line-height: 1.45;
+}
+
+.add-app-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 16px;
+  background: linear-gradient(180deg, #3b78f6 0%, #2b63ee 100%);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+
+.add-app-btn:hover {
+  opacity: 0.9;
+}
+
+.services-stats {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.stat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  background: #fff;
+  border: 1px solid #e4e8ef;
+  border-radius: 999px;
+  font-size: 13px;
+  color: #3d4658;
+  box-shadow: 0 1px 3px rgba(16,24,40,0.04);
+}
+
+.stat-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.stat-dot.connected {
+  background: #16a34a;
+  box-shadow: 0 0 0 3px rgba(22,163,74,0.15);
+}
+
+.stat-dot.degraded {
+  background: #d97706;
+  box-shadow: 0 0 0 3px rgba(217,119,6,0.15);
+}
+
+.stat-dot.disconnected {
+  background: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239,68,68,0.15);
+}
+
+.stat-text strong {
+  font-weight: 700;
+  color: #172033;
+}
+
+.services-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.service-card {
+  background: #fff;
+  border: 1px solid #e4e8ef;
+  border-left: 4px solid;
+  border-radius: 14px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: 0 1px 0 rgba(16,24,40,0.02), 0 4px 14px rgba(16,24,40,0.04);
+  transition: box-shadow 0.15s;
+}
+
+.service-card:hover {
+  box-shadow: 0 2px 0 rgba(16,24,40,0.03), 0 8px 24px rgba(16,24,40,0.08);
+}
+
+.service-card-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.service-icon-wrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.service-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.service-name {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #172033;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.service-env {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #8b95a8;
+}
+
+.status-badge-wrap {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.status-dot-sm {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.status-label {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.service-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 14px 0;
+  border-top: 1px solid #f1f4f8;
+  border-bottom: 1px solid #f1f4f8;
+}
+
+.meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.meta-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #9ca3af;
+  letter-spacing: 0.4px;
+}
+
+.meta-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #172033;
+}
+
+.service-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.svc-btn {
+  flex: 1;
+  padding: 8px 0;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  border: none;
+  background: #2d6cf6;
+  color: #fff;
+  transition: opacity 0.15s;
+}
+
+.svc-btn:hover {
+  opacity: 0.88;
+}
+
+.svc-btn.outline {
+  background: none;
+  border: 1px solid #dfe5ee;
+  color: #5a6478;
+}
+
+.svc-btn.outline:hover {
+  background: #f3f5f8;
+  opacity: 1;
+}
+
+@media (max-width: 1200px) {
+  .services-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .deployments-page {
+    padding: 18px 16px 22px;
+  }
+
+  .deployments-header {
+    flex-direction: column;
+  }
+
+  .add-app-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .services-grid {
+    grid-template-columns: 1fr;
+  }
+}

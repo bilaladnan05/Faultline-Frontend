@@ -18,9 +18,4 @@ export default defineConfig([
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
   },
-  {
-    // Build configuration runs in Node, not the browser.
-    files: ['vite.config.js', 'eslint.config.js', 'postcss.config.js', 'tailwind.config.js'],
-    languageOptions: { globals: globals.node },
-  },
 ])

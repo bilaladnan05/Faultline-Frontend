@@ -1,11 +1,14 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { setUnauthorizedHandler } from "../api/client";
 import {
   changePassword as changePasswordRequest,
   getCurrentUser,
+  getEntitlements,
   login as loginRequest,
   logout as logoutRequest,
 } from "../api/endpoints";
+import { planIncludes } from "./plans";
 import { hasPermission, hasProjectAccess, hasRole, isAdmin } from "./roles";
 
 const AuthContext = createContext(null);
@@ -14,12 +17,26 @@ const AuthContext = createContext(null);
  * Authentication is held by the API in an HttpOnly cookie. JavaScript keeps only the
  * current user's non-secret presentation data, and re-reads it after every page load.
  */
+/**
+ * The account's tier, or null when it cannot be read. Null means "unknown", which the
+ * UI treats as "offer the page and let the API decide" rather than hiding everything.
+ */
+async function readEntitlements(signal) {
+  try {
+    return await getEntitlements({ signal });
+  } catch {
+    return null;
+  }
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
+  const [entitlements, setEntitlements] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const signOut = useCallback((reason) => {
     setUser(null);
+    setEntitlements(null);
     if (reason) {
       try {
         sessionStorage.setItem("fl_signout_reason", reason);
@@ -47,8 +64,12 @@ export function AuthProvider({ children }) {
       /* Storage may be disabled. */
     }
     getCurrentUser({ signal: controller.signal, auth: false })
-      .then((fresh) => {
-        if (!cancelled) setUser(fresh);
+      .then(async (fresh) => {
+        if (cancelled) return;
+        setUser(fresh);
+        if (fresh.mustChangePassword) return;
+        const granted = await readEntitlements(controller.signal);
+        if (!cancelled) setEntitlements(granted);
       })
       .catch((error) => {
         if (cancelled || error?.name === "AbortError" || error?.status === 401) return;
@@ -65,6 +86,8 @@ export function AuthProvider({ children }) {
 
   const signIn = useCallback(async (email, password) => {
     const session = await loginRequest(email, password);
+    const granted = session.user?.mustChangePassword ? null : await readEntitlements();
+    setEntitlements(granted);
     setUser(session.user);
     setLoading(false);
     return session.user;
@@ -72,6 +95,7 @@ export function AuthProvider({ children }) {
 
   const changePassword = useCallback(async (currentPassword, newPassword) => {
     const refreshed = await changePasswordRequest(currentPassword, newPassword);
+    setEntitlements(await readEntitlements());
     setUser(refreshed.user);
     return refreshed.user;
   }, []);
@@ -98,8 +122,12 @@ export function AuthProvider({ children }) {
       hasRole: (...roles) => hasRole(user, ...roles),
       can: (permission) => hasPermission(user, permission),
       canAccessProject: (projectId) => hasProjectAccess(user, projectId),
+      /** The organization's tier as the API reports it; null until known. */
+      entitlements,
+      /** Whether the tier includes a module. A courtesy: the API enforces the same rule. */
+      hasFeature: (feature) => planIncludes(entitlements, feature),
     }),
-    [user, loading, signIn, signOutRemote, changePassword],
+    [user, loading, entitlements, signIn, signOutRemote, changePassword],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

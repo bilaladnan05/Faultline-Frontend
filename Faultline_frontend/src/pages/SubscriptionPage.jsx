@@ -1,6 +1,6 @@
 import { Check, Zap, Building2, Star, CreditCard } from "lucide-react";
 import TopBar from "../components/layout/TopBar";
-import { showToast } from "../components/ui/Toast";
+import { showToast } from "../utils/toast";
 
 const plans = [
   {

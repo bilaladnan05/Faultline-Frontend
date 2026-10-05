@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-const DEFAULT_POLL_MS = Number(import.meta.env.VITE_API_POLL_MS || 15000);
+const DEFAULT_POLL_MS = Number((import.meta.env ?? {}).VITE_API_POLL_MS || 15000);
 
 /**
  * Fetches one API resource, with polling for the live views.

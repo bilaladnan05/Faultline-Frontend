@@ -1,21 +1,15 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// The Faultline API does not enable CORS, so in development the browser must see the
-// API on the same origin as the app. Vite proxies `/api/*` to the backend and strips the
-// prefix, which is why VITE_API_BASE_URL defaults to `/api` rather than an absolute URL.
+// https://vite.dev/config/
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), '')
-  const target = env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:3000'
-
+  const env = loadEnv(mode, '.', '')
   return {
     plugins: [react()],
     server: {
-      // `npm run dev` opens the browser straight onto the marketing page at "/".
-      open: '/',
       proxy: {
         '/api': {
-          target,
+          target: env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:3000',
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/api/, ''),
         },

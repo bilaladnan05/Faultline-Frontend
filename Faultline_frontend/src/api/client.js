@@ -13,8 +13,9 @@
  *   409 refused because of a conflict   503 a dependency behind the endpoint is down
  */
 
-const BASE_URL = (import.meta.env.VITE_API_BASE_URL || "/api").replace(/\/+$/, "");
-const TIMEOUT_MS = Number(import.meta.env.VITE_API_TIMEOUT_MS || 20000);
+const runtimeEnv = import.meta.env ?? {};
+const BASE_URL = (runtimeEnv.VITE_API_BASE_URL || "/api").replace(/\/+$/, "");
+const TIMEOUT_MS = Number(runtimeEnv.VITE_API_TIMEOUT_MS || 20000);
 
 /**
  * The token every request is signed with.
@@ -126,15 +127,16 @@ async function request(method, path, { params, body, signal, auth = true } = {})
 
   let response;
   try {
+    const isForm = typeof FormData !== "undefined" && body instanceof FormData;
     response = await fetch(url, {
       method,
       credentials: "include",
       headers: {
         Accept: "application/json",
-        ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+        ...(body !== undefined && !isForm ? { "Content-Type": "application/json" } : {}),
         ...(auth && accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       },
-      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+      ...(body !== undefined ? { body: isForm ? body : JSON.stringify(body) } : {}),
       signal: controller.signal,
     });
   } catch (cause) {
@@ -165,11 +167,75 @@ async function request(method, path, { params, body, signal, auth = true } = {})
   return payload;
 }
 
+function responseFilename(response) {
+  const disposition = response.headers.get("content-disposition") ?? "";
+  const encoded = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+  if (encoded) {
+    try {
+      return decodeURIComponent(encoded);
+    } catch {
+      return encoded;
+    }
+  }
+  return disposition.match(/filename="([^"]+)"/i)?.[1] ??
+    disposition.match(/filename=([^;]+)/i)?.[1]?.trim() ?? null;
+}
+
+/** Fetches a backend-generated attachment while preserving normal API errors. */
+export async function apiGetBlob(path, params, { signal, auth = true, accept } = {}) {
+  const url = `${BASE_URL}${path}${buildQuery(params)}`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const onAbort = () => controller.abort();
+  signal?.addEventListener("abort", onAbort);
+
+  let response;
+  try {
+    response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Accept: accept || "application/octet-stream",
+        ...(auth && accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
+      signal: controller.signal,
+    });
+  } catch (cause) {
+    if (signal?.aborted) throw cause;
+    throw new ApiError(
+      controller.signal.aborted
+        ? `Request to ${url} timed out after ${TIMEOUT_MS}ms`
+        : `Cannot reach the Faultline API at ${url}`,
+      { url, cause },
+    );
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener("abort", onAbort);
+  }
+
+  if (!response.ok) {
+    const payload = await readBody(response);
+    if (response.status === 401 && auth) onUnauthorized?.();
+    throw new ApiError(errorMessage(payload, response), {
+      status: response.status,
+      url,
+      body: payload,
+    });
+  }
+
+  return {
+    blob: await response.blob(),
+    filename: responseFilename(response),
+    contentType: response.headers.get("content-type") ?? "application/octet-stream",
+  };
+}
+
 export const apiGet = (path, params, options = {}) =>
   request("GET", path, { ...options, params });
 
 export const apiPost = (path, body, options = {}) =>
   request("POST", path, { ...options, body: body ?? {} });
+export const apiPostForm = (path, form, options = {}) =>
+  request("POST", path, { ...options, body: form });
 
 export const apiPatch = (path, body, options = {}) =>
   request("PATCH", path, { ...options, body: body ?? {} });

@@ -1,233 +1,139 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { AuthProvider } from "../auth/AuthContext";
+import { RequireAuth, RequireFeature, RequirePasswordChanged, RequireRole } from "../auth/guards";
+import { FEATURES } from "../auth/plans";
+import { ROLES } from "../auth/roles";
 import AppLayout from "../components/layout/AppLayout";
-import LandingPage from "../pages/LandingPage";
-import LoginPage from "../pages/LoginPage";
-import MFAPage from "../pages/MFAPage";
-import DashboardPage from "../pages/DashboardPage";
-import IncidentsListPage from "../pages/IncidentsListPage";
-import IncidentDetailPage from "../pages/IncidentDetailPage";
-import PRIssuancePage from "../pages/PRIssuancePage";
-import IntegrationsPage from "../pages/IntegrationsPage";
-import RuntimeMonitoringPage from "../pages/RuntimeMonitoringPage";
-import LedgerPage from "../pages/LedgerPage";
-import ReportingPage from "../pages/ReportingPage";
-import VoiceAgentPage from "../pages/VoiceAgentPage";
-import SubscriptionPage from "../pages/SubscriptionPage";
-import TeamRolesPage from "../pages/TeamRolesPage";
 import AlertsPage from "../pages/AlertsPage";
 import DeploymentsPage from "../pages/DeploymentsPage";
-import SettingsPage from "../pages/SettingsPage";
-import ForbiddenPage from "../pages/ForbiddenPage";
-import SubscribePage from "../pages/SubscribePage";
-import PaymentReturnPage from "../pages/PaymentReturnPage";
+import IncidentDetailPage from "../pages/IncidentDetailPage";
+import IntegrationsPage from "../pages/IntegrationsPage";
+import LedgerPage from "../pages/LedgerPage";
+import PRIssuancePage from "../pages/PRIssuancePage";
+import ReportingPage from "../pages/ReportingPage";
+import RuntimeMonitoringPage from "../pages/RuntimeMonitoringPage";
+import TeamRolesPage from "../pages/TeamRolesPage";
+import VoiceAgentPage from "../pages/VoiceAgentPage";
+import SmsAgentPage from "../pages/SmsAgentPage";
+import { ProjectProvider } from "../context/ProjectContext";
 import ChangePasswordPage from "../pages/ChangePasswordPage";
-import AdminUsersPage from "../pages/admin/AdminUsersPage";
-import AdminAuditPage from "../pages/admin/AdminAuditPage";
-import { ProjectProvider, useProject } from "../context/ProjectContext";
-import { AuthProvider, useAuth } from "../auth/AuthContext";
-import {
-  RequireAuth,
-  RequirePasswordChanged,
-  RequireProjectAccess,
-  RequireRole,
-} from "../auth/guards";
-import { ROLES } from "../auth/roles";
-
-/**
- * Project-workspace pages only make sense once a project has been opened from the
- * project list. Unchanged in spirit from before; what changed is that the list it sends
- * people back to now contains only the projects they are allowed to open.
- */
-function RequireProject({ children }) {
-  const { activeProject } = useProject();
-  return activeProject ? children : <Navigate to="/projects" replace />;
-}
-
-function DefaultRedirect() {
-  const { activeProject } = useProject();
-  return <Navigate to={activeProject ? "/dashboard" : "/projects"} replace />;
-}
-
-/** Signed-in users have no reason to see the marketing page or the login form again. */
-function PublicOnly({ children }) {
-  const { isAuthenticated, loading } = useAuth();
-  if (loading) return children;
-  return isAuthenticated ? <Navigate to="/projects" replace /> : children;
-}
-
-/**
- * Routing and its guards.
- *
- * Three kinds of protection are layered here, and none of them is the security boundary
- * — the API enforces all three independently on every request:
- *
- *   RequireAuth           there is a verified session
- *   RequireRole           the role may reach this area at all (the /admin subtree)
- *   RequireProjectAccess  this user is assigned to the project named in the URL
- *
- * The last is what makes editing `/projects/project-a` to `/projects/project-b` in the
- * address bar land on the forbidden page. Deleting it would not expose project B: the
- * API would still answer 403 to every request the page then made.
- */
-function AppRoutes() {
-  return (
-    <Routes>
-      {/* Public routes. "/" is the marketing page every visitor lands on. */}
-      <Route
-        path="/"
-        element={
-          <PublicOnly>
-            <LandingPage />
-          </PublicOnly>
-        }
-      />
-      <Route
-        path="/login"
-        element={
-          <PublicOnly>
-            <LoginPage />
-          </PublicOnly>
-        }
-      />
-      <Route path="/mfa" element={<MFAPage />} />
-
-      {/* Buying a subscription is how an account comes to exist, so none of this can
-          sit behind authentication. `PublicOnly` is not applied either: an existing
-          customer may legitimately buy a second subscription. */}
-      <Route path="/subscribe" element={<SubscribePage />} />
-      <Route
-        path="/payment/success"
-        element={<PaymentReturnPage outcome="success" />}
-      />
-      <Route path="/payment/cancel" element={<PaymentReturnPage outcome="cancel" />} />
-
-      {/* Authenticated, but outside the shell: this is the one screen an account with
-          a temporary password may reach, and it must not render the sidebar that links
-          to everything it cannot open. */}
-      <Route
-        path="/change-password"
-        element={
-          <RequireAuth>
-            <ChangePasswordPage />
-          </RequireAuth>
-        }
-      />
-
-      {/* Authenticated app shell — a pathless layout route, so "/" stays public */}
-      <Route
-        element={
-          <RequireAuth>
-            {/* Everything inside the shell is closed to an account that still owes a
-                password change. Wrapping the layout rather than each route means a
-                page added later is covered without anyone remembering to cover it. */}
-            <RequirePasswordChanged>
-              <AppLayout />
-            </RequirePasswordChanged>
-          </RequireAuth>
-        }
-      >
-        {/* Org-level — no project selection required */}
-        <Route path="/projects" element={<DeploymentsPage />} />
-        {/* The old path, kept so existing links and bookmarks still work. */}
-        <Route path="/deployments" element={<Navigate to="/projects" replace />} />
-        <Route path="/forbidden" element={<ForbiddenPage />} />
-
-        {/* Opening one project by id: the route an engineer might try to edit. */}
-        <Route
-          path="/projects/:projectId"
-          element={
-            <RequireProjectAccess>
-              <DashboardPage />
-            </RequireProjectAccess>
-          }
-        />
-        <Route
-          path="/projects/:projectId/incidents"
-          element={
-            <RequireProjectAccess>
-              <IncidentsListPage />
-            </RequireProjectAccess>
-          }
-        />
-
-        {/* Administration — Admin only, both here and at the API. */}
-        <Route
-          path="/admin/users"
-          element={
-            <RequireRole roles={[ROLES.ADMIN]}>
-              <AdminUsersPage />
-            </RequireRole>
-          }
-        />
-        <Route
-          path="/admin/audit"
-          element={
-            <RequireRole roles={[ROLES.ADMIN]}>
-              <AdminAuditPage />
-            </RequireRole>
-          }
-        />
-        <Route path="/admin/projects" element={<Navigate to="/projects" replace />} />
-        <Route
-          path="/team"
-          element={
-            <RequireRole roles={[ROLES.ADMIN]}>
-              <TeamRolesPage />
-            </RequireRole>
-          }
-        />
-        <Route
-          path="/subscription"
-          element={
-            <RequireRole roles={[ROLES.ADMIN]}>
-              <SubscriptionPage />
-            </RequireRole>
-          }
-        />
-        <Route
-          path="/settings"
-          element={
-            <RequireRole roles={[ROLES.ADMIN]}>
-              <SettingsPage />
-            </RequireRole>
-          }
-        />
-
-        {/* Project workspace — requires a project opened from the list */}
-        <Route path="/dashboard" element={<RequireProject><DashboardPage /></RequireProject>} />
-        <Route path="/incidents" element={<RequireProject><IncidentsListPage /></RequireProject>} />
-        <Route path="/incidents/:id" element={<RequireProject><IncidentDetailPage /></RequireProject>} />
-        <Route path="/incidents/:id/pr" element={<RequireProject><PRIssuancePage /></RequireProject>} />
-        <Route path="/alerts" element={<RequireProject><AlertsPage /></RequireProject>} />
-        <Route
-          path="/integrations"
-          element={
-            <RequireRole roles={[ROLES.ADMIN]}>
-              <RequireProject>
-                <IntegrationsPage />
-              </RequireProject>
-            </RequireRole>
-          }
-        />
-        <Route path="/runtime" element={<RequireProject><RuntimeMonitoringPage /></RequireProject>} />
-        <Route path="/ledger" element={<RequireProject><LedgerPage /></RequireProject>} />
-        <Route path="/reporting" element={<RequireProject><ReportingPage /></RequireProject>} />
-        <Route path="/voice-agent" element={<RequireProject><VoiceAgentPage /></RequireProject>} />
-
-        <Route path="*" element={<DefaultRedirect />} />
-      </Route>
-    </Routes>
-  );
-}
+import ForbiddenPage from "../pages/ForbiddenPage";
+import LandingPage from "../pages/LandingPage";
+import LoginPage from "../pages/LoginPage";
+import PaymentReturnPage from "../pages/PaymentReturnPage";
+import SubscribePage from "../pages/SubscribePage";
+import ClusterOnboardingPage from "../pages/ClusterOnboardingPage";
 
 export default function App() {
   return (
     <BrowserRouter>
-      {/* Auth wraps projects: the project selection is validated against the identity,
-          so the identity has to exist first. */}
       <AuthProvider>
         <ProjectProvider>
-          <AppRoutes />
+          <Routes>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/subscribe" element={<SubscribePage />} />
+            <Route
+              path="/payment/success"
+              element={<PaymentReturnPage outcome="success" />}
+            />
+            <Route
+              path="/payment/cancel"
+              element={<PaymentReturnPage outcome="cancel" />}
+            />
+            <Route
+              path="/change-password"
+              element={
+                <RequireAuth>
+                  <ChangePasswordPage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              element={
+                <RequireAuth>
+                  <RequirePasswordChanged>
+                    <AppLayout />
+                  </RequirePasswordChanged>
+                </RequireAuth>
+              }
+            >
+              <Route
+                path="clusters/onboarding"
+                element={
+                  <RequireRole roles={[ROLES.ADMIN]}>
+                    <ClusterOnboardingPage />
+                  </RequireRole>
+                }
+              />
+              <Route path="clusters" element={<DeploymentsPage />} />
+              <Route path="onboarding" element={<Navigate to="/clusters/onboarding" replace />} />
+              <Route path="deployments" element={<Navigate to="/clusters" replace />} />
+              <Route path="dashboard" element={<Navigate to="/clusters" replace />} />
+              {/* The Incident Ledger is the incidents list; the old address still lands. */}
+              <Route path="incidents" element={<Navigate to="/ledger" replace />} />
+              <Route path="incidents/:id" element={<IncidentDetailPage />} />
+              {/* Basic pages (clusters, onboarding, incidents, alerts, ledger) are on every
+                  plan; the rest are gated by tier here and, independently, by the API. */}
+              <Route
+                path="incidents/:id/pr"
+                element={
+                  <RequireFeature feature={FEATURES.AUTO_REMEDIATION}>
+                    <PRIssuancePage />
+                  </RequireFeature>
+                }
+              />
+              <Route path="alerts" element={<AlertsPage />} />
+              <Route
+                path="integrations"
+                element={
+                  <RequireFeature feature={FEATURES.INTEGRATIONS}>
+                    <IntegrationsPage />
+                  </RequireFeature>
+                }
+              />
+              <Route
+                path="runtime"
+                element={
+                  <RequireFeature feature={FEATURES.LOG_AGGREGATOR}>
+                    <RuntimeMonitoringPage />
+                  </RequireFeature>
+                }
+              />
+              <Route path="ledger" element={<LedgerPage />} />
+              <Route
+                path="reporting"
+                element={
+                  <RequireFeature feature={FEATURES.REPORTING}>
+                    <ReportingPage />
+                  </RequireFeature>
+                }
+              />
+              <Route
+                path="voice-agent"
+                element={
+                  <RequireRole roles={[ROLES.ADMIN]}>
+                    <RequireFeature feature={FEATURES.VOICE_AGENT}>
+                      <VoiceAgentPage />
+                    </RequireFeature>
+                  </RequireRole>
+                }
+              />
+              <Route path="sms-agent" element={<RequireRole roles={[ROLES.ADMIN]}><RequireFeature feature={FEATURES.VOICE_AGENT}><SmsAgentPage /></RequireFeature></RequireRole>} />
+              <Route
+                path="team"
+                element={
+                  <RequireRole roles={[ROLES.ADMIN]}>
+                    <RequireFeature feature={FEATURES.TEAM_MANAGEMENT}>
+                      <TeamRolesPage />
+                    </RequireFeature>
+                  </RequireRole>
+                }
+              />
+              <Route path="forbidden" element={<ForbiddenPage />} />
+              <Route path="*" element={<Navigate to="/clusters" replace />} />
+            </Route>
+          </Routes>
         </ProjectProvider>
       </AuthProvider>
     </BrowserRouter>

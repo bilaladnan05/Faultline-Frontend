@@ -1,26 +1,12 @@
 const styles = {
-  // Incident severities as the API reports them (INFO | WARNING | HIGH | CRITICAL).
   CRITICAL: "bg-red-50 text-red-600 border border-red-200",
   HIGH: "bg-orange-50 text-orange-600 border border-orange-200",
   WARNING: "bg-yellow-50 text-yellow-700 border border-yellow-200",
   INFO: "bg-blue-50 text-blue-600 border border-blue-200",
-  // Retained for the pages still on mock data.
   MEDIUM: "bg-yellow-50 text-yellow-700 border border-yellow-200",
   LOW: "bg-gray-100 text-gray-500 border border-gray-200",
-
-  // Incident statuses (OPEN | ACTIVE | RESOLVED), title-cased for display.
-  Open: "bg-purple-50 text-purple-600 border border-purple-200",
   Active: "bg-blue-50 text-blue-600 border border-blue-200",
   Resolved: "bg-green-50 text-green-600 border border-green-200",
-
-  // Kubernetes event types.
-  Warning: "bg-orange-50 text-orange-600 border border-orange-200",
-  Normal: "bg-gray-100 text-gray-500 border border-gray-200",
-
-  // Baseline readiness.
-  READY: "bg-green-50 text-green-600 border border-green-200",
-  BASELINE_NOT_READY: "bg-gray-100 text-gray-500 border border-gray-200",
-
   Triaged: "bg-cyan-50 text-cyan-600 border border-cyan-200",
   Investigating: "bg-purple-50 text-purple-600 border border-purple-200",
   Assigned: "bg-indigo-50 text-indigo-600 border border-indigo-200",
@@ -28,8 +14,25 @@ const styles = {
   connected: "bg-green-50 text-green-600 border border-green-200",
   disconnected: "bg-red-50 text-red-600 border border-red-200",
   degraded: "bg-yellow-50 text-yellow-700 border border-yellow-200",
+  DEGRADED: "bg-yellow-50 text-yellow-700 border border-yellow-200",
+  HEALTHY: "bg-green-50 text-green-600 border border-green-200",
+  UNHEALTHY: "bg-red-50 text-red-600 border border-red-200",
+  OPEN: "bg-blue-50 text-blue-600 border border-blue-200",
+  ACTIVE: "bg-purple-50 text-purple-600 border border-purple-200",
+  RESOLVED: "bg-green-50 text-green-600 border border-green-200",
   Answered: "bg-green-50 text-green-600 border border-green-200",
   "No Answer": "bg-gray-100 text-gray-500 border border-gray-200",
+  PENDING: "bg-yellow-50 text-yellow-700 border border-yellow-200",
+  SENT: "bg-blue-50 text-blue-600 border border-blue-200",
+  IN_PROGRESS: "bg-blue-50 text-blue-600 border border-blue-200",
+  ANSWERED: "bg-cyan-50 text-cyan-700 border border-cyan-200",
+  ACKNOWLEDGED: "bg-green-50 text-green-600 border border-green-200",
+  DELIVERED: "bg-green-50 text-green-600 border border-green-200",
+  COMPLETED: "bg-green-50 text-green-600 border border-green-200",
+  DECLINED: "bg-orange-50 text-orange-600 border border-orange-200",
+  FAILED: "bg-red-50 text-red-600 border border-red-200",
+  NO_ANSWER: "bg-gray-100 text-gray-500 border border-gray-200",
+  CANCELLED: "bg-gray-100 text-gray-500 border border-gray-200",
   Escalated: "bg-orange-50 text-orange-600 border border-orange-200",
 };
 
