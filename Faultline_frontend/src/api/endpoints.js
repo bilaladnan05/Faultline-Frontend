@@ -105,8 +105,8 @@ export const unassignClusterSre = (id, userId, options) =>
   );
 
 /** Starts the server-side Kubernetes onboarding command and returns its background job. */
-export const startClusterOnboarding = (clusterName, controlPlaneIp, options) =>
-  apiPost("/cluster-onboarding", { clusterName, controlPlaneIp }, options);
+export const startClusterOnboarding = (clusterName, controlPlaneIp, ingestionEndpoint, kubeconfig, options) =>
+  apiPost("/cluster-onboarding", { clusterName, controlPlaneIp, ingestionEndpoint, kubeconfig }, options);
 
 /** Reads progress emitted by the existing cluster:onboard script. */
 export const getClusterOnboarding = (id, options) =>
