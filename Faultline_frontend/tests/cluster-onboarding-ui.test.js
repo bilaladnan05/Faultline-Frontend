@@ -30,3 +30,13 @@ test("successful onboarding resets the reusable form and reports success", () =>
   assert.match(form, /onSuccess\?\.\(next\)/);
   assert.doesNotMatch(form, /useNavigate|navigate\(/);
 });
+
+test("remote onboarding sends an ingestion URL reachable from the cluster", () => {
+  const form = read("src/components/clusters/ClusterOnboardingForm.jsx");
+  const endpoints = read("src/api/endpoints.js");
+  assert.match(form, /Faultline ingestion address/);
+  assert.match(form, /type="file"/);
+  assert.match(form, /file\.text\(\)/);
+  assert.match(form, /startClusterOnboarding\(clusterName\.trim\(\), controlPlaneIp\.trim\(\), ingestionEndpoint\.trim\(\), kubeconfig\)/);
+  assert.match(endpoints, /\{ clusterName, controlPlaneIp, ingestionEndpoint, kubeconfig \}/);
+});

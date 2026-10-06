@@ -15,11 +15,20 @@ const steps = [
 export default function ClusterOnboardingForm({ onSuccess }) {
   const [clusterName, setClusterName] = useState("");
   const [controlPlaneIp, setControlPlaneIp] = useState("");
+  const [ingestionEndpoint, setIngestionEndpoint] = useState(() => {
+    const hostname = window.location.hostname;
+    return hostname && !["localhost", "127.0.0.1", "::1"].includes(hostname)
+      ? `http://${hostname}:3001`
+      : "";
+  });
+  const [kubeconfig, setKubeconfig] = useState("");
+  const [kubeconfigName, setKubeconfigName] = useState("");
   const [job, setJob] = useState(null);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const outputRef = useRef(null);
+  const kubeconfigInputRef = useRef(null);
 
   useEffect(() => {
     if (!job?.id || job.status !== "running") return undefined;
@@ -31,6 +40,10 @@ export default function ClusterOnboardingForm({ onSuccess }) {
           const message = `${next.clusterName || "Cluster"} was onboarded successfully. You can add another cluster.`;
           setClusterName("");
           setControlPlaneIp("");
+          setIngestionEndpoint("");
+          setKubeconfig("");
+          setKubeconfigName("");
+          if (kubeconfigInputRef.current) kubeconfigInputRef.current.value = "";
           setJob(null);
           setSuccessMessage(message);
           showToast(message);
@@ -57,10 +70,11 @@ export default function ClusterOnboardingForm({ onSuccess }) {
     setError("");
     setSuccessMessage("");
     if (!clusterName.trim()) return setError("Enter a name for this cluster.");
-    if (!controlPlaneIp.trim()) return setError("Enter the Kubernetes control-plane address.");
+    if (!ingestionEndpoint.trim()) return setError("Enter the Faultline ingestion address reachable from the cluster.");
+    if (!kubeconfig) return setError("Select the kubeconfig exported by the BookNest machine.");
     setSubmitting(true);
     try {
-      setJob(await startClusterOnboarding(clusterName.trim(), controlPlaneIp.trim()));
+      setJob(await startClusterOnboarding(clusterName.trim(), controlPlaneIp.trim(), ingestionEndpoint.trim(), kubeconfig));
     } catch (caught) {
       // A plan refusal (cluster allowance used) carries its own explanation and the tier
       // that lifts it; any other 403 is the role check.
@@ -98,13 +112,42 @@ export default function ClusterOnboardingForm({ onSuccess }) {
               <span className="mt-1.5 block text-xs text-gray-400">A recognizable name for dashboards and alerts.</span>
             </label>
             <label className="block">
-              <span className="mb-1.5 block text-xs font-semibold text-gray-700">Kubernetes control-plane address</span>
-              <div className="relative"><CircleDot size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input value={controlPlaneIp} onChange={(event) => setControlPlaneIp(event.target.value)} disabled={running} inputMode="text" autoComplete="off" placeholder="127.0.0.1:6443" className="w-full rounded-lg border border-gray-200 py-2.5 pl-9 pr-3 font-mono text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-gray-50" /></div>
-              <span className="mt-1.5 block text-xs text-gray-400">IPv4 or IPv6, with an optional API-server port.</span>
+              <span className="mb-1.5 block text-xs font-semibold text-gray-700">Kubernetes control-plane address <span className="font-normal text-gray-400">(optional)</span></span>
+              <div className="relative"><CircleDot size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input value={controlPlaneIp} onChange={(event) => setControlPlaneIp(event.target.value)} disabled={running} inputMode="text" autoComplete="off" placeholder="Use imported kubeconfig" className="w-full rounded-lg border border-gray-200 py-2.5 pl-9 pr-3 font-mono text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-gray-50" /></div>
+              <span className="mt-1.5 block text-xs text-gray-400">Leave blank to use the API address from the imported kubeconfig.</span>
+            </label>
+            <label className="block sm:col-span-2">
+              <span className="mb-1.5 block text-xs font-semibold text-gray-700">Faultline ingestion address</span>
+              <div className="relative"><Network size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input value={ingestionEndpoint} onChange={(event) => setIngestionEndpoint(event.target.value)} disabled={running} inputMode="url" autoComplete="off" placeholder="http://192.168.18.40:3001" className="w-full rounded-lg border border-gray-200 py-2.5 pl-9 pr-3 font-mono text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-gray-50" /></div>
+              <span className="mt-1.5 block text-xs text-gray-400">Use the Faultline machine LAN address; Kubernetes pods cannot use localhost.</span>
+            </label>
+            <label className="block sm:col-span-2">
+              <span className="mb-1.5 block text-xs font-semibold text-gray-700">Cluster access file</span>
+              <input
+                ref={kubeconfigInputRef}
+                type="file"
+                accept=".yaml,.yml,application/yaml,text/yaml,text/plain"
+                disabled={running}
+                onChange={async (event) => {
+                  const file = event.target.files?.[0];
+                  setError("");
+                  if (file && file.size > 64 * 1024) {
+                    setKubeconfig("");
+                    setKubeconfigName("");
+                    event.target.value = "";
+                    setError("The kubeconfig is larger than the 64 KB limit.");
+                    return;
+                  }
+                  setKubeconfigName(file?.name || "");
+                  setKubeconfig(file ? await file.text() : "");
+                }}
+                className="block w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-blue-700 hover:file:bg-blue-100 disabled:bg-gray-50"
+              />
+              <span className="mt-1.5 block text-xs text-gray-400">Select <span className="font-mono">booknest-faultline-kubeconfig.yaml</span>{kubeconfigName ? ` (${kubeconfigName})` : ""}. It is sent only to your authenticated Faultline API and stored privately.</span>
             </label>
           </div>
 
-          <div className="mt-5 flex items-start gap-2.5 rounded-lg border border-blue-100 bg-blue-50/60 px-3 py-2.5"><ShieldCheck size={15} className="mt-0.5 shrink-0 text-blue-600" /><p className="text-xs leading-5 text-blue-800">Faultline uses your current kubectl context and never asks for cluster credentials in the browser.</p></div>
+          <div className="mt-5 flex items-start gap-2.5 rounded-lg border border-blue-100 bg-blue-50/60 px-3 py-2.5"><ShieldCheck size={15} className="mt-0.5 shrink-0 text-blue-600" /><p className="text-xs leading-5 text-blue-800">Faultline accepts only an embedded-certificate kubeconfig. Executable plugins, external credential files, proxy settings, and disabled TLS verification are rejected.</p></div>
           <div className="mt-5 flex items-center justify-between border-t border-gray-100 pt-4">
             <p className="hidden text-xs text-gray-400 sm:block">After completion, the form resets so you can onboard another cluster.</p>
             <button type="submit" disabled={submitting || running} className="ml-auto flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60">{submitting || running ? <><LoaderCircle size={15} className="animate-spin" /> Connecting…</> : <>Connect cluster <ArrowRight size={15} /></>}</button>
