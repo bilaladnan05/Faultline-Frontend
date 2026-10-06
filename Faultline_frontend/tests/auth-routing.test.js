@@ -27,6 +27,16 @@ test("the landing and registration flow remain publicly routable", () => {
   assert.match(app, /path="\/payment\/cancel"/);
 });
 
+test("the payment success instructions render as three aligned steps", () => {
+  const page = read("src/pages/PaymentReturnPage.jsx");
+  const styles = read("src/styles/landing.css");
+  assert.equal((page.match(/<li className="step">/g) ?? []).length, 3);
+  for (const heading of ["Check your inbox", "Sign in", "Secure your account"])
+    assert.match(page, new RegExp(heading));
+  assert.match(styles, /\.step[\s\S]*grid-template-columns: 28px minmax\(0, 1fr\)/);
+  assert.match(styles, /\.step-title[\s\S]*display: flex/);
+});
+
 test("successful authentication enters the user-scoped clusters view", () => {
   const login = read("src/pages/LoginPage.jsx");
   const deployments = read("src/pages/DeploymentsPage.jsx");
@@ -48,6 +58,12 @@ test("clusters replace dashboard as the authenticated landing tab", () => {
   assert.match(sidebar, /to: "\/clusters"[\s\S]*label: "Onboarded Clusters"/);
   assert.match(sidebar, /to: "\/clusters\/onboarding"[\s\S]*label: "Cluster Onboarding"/);
   assert.doesNotMatch(sidebar, /label: "Dashboard"/);
+});
+
+test("the onboarded clusters page omits the API dependency status strip", () => {
+  const deployments = read("src/pages/DeploymentsPage.jsx");
+  assert.doesNotMatch(deployments, /Faultline API|getReadiness|getSystemInfo|readinessStatus/);
+  assert.match(deployments, /onClick=\{registered\.refetch\}/);
 });
 
 /** One role's `start` or `cluster` menu from the Sidebar's MENUS, as NAV keys. */
@@ -79,11 +95,16 @@ test("each role starts on its own menu and switches to a cluster menu on Manage"
   assert.match(sidebar, /const inCluster = Boolean\(activeProject\)/);
   assert.match(sidebar, /inCluster \? menu\.cluster : menu\.start/);
 
-  // Manage opens the cluster; the switcher and the registry pages close it again.
+  // Manage opens the cluster; only the switcher and registry pages close it again.
   assert.match(deployments, /setActiveProject\(\{/);
   assert.match(deployments, /onClick=\{\(\) => open\(cluster, "\/ledger"\)\}/);
   assert.match(sidebar, /clearActiveProject\(\);\s*navigate\("\/clusters"\)/);
   assert.match(sidebar, /if \(ORGANIZATION_PATHS\.has\(pathname\)\) clearActiveProject\(\)/);
+  const organizationPaths = sidebar.match(/const ORGANIZATION_PATHS = new Set\(\[([\s\S]*?)\]\);/)?.[1];
+  assert.ok(organizationPaths);
+  assert.match(organizationPaths, /NAV\.clusters\.to/);
+  assert.match(organizationPaths, /NAV\.onboarding\.to/);
+  assert.doesNotMatch(organizationPaths, /NAV\.(audit|subscription|security)\.to/);
 });
 
 test("the sidebar shows who is signed in and lets them sign out", () => {

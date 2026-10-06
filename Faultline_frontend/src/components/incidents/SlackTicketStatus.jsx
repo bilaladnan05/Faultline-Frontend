@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ExternalLink, Loader2, MessageSquare, RefreshCw } from "lucide-react";
+import { AlertTriangle, ExternalLink, Loader2, MessageSquare, RefreshCw, X } from "lucide-react";
 import { formatTimestamp } from "../../api/adapters";
 import { createIncidentSlackTicket } from "../../api/reporting";
 import StatusPill from "../ui/StatusPill";
@@ -10,6 +10,7 @@ const LINK_POLL_INTERVAL_MS = 1500;
 export default function SlackTicketStatus({ incidentId, query }) {
   const [requestState, setRequestState] = useState("idle");
   const [requestError, setRequestError] = useState("");
+  const [showSlackWarning, setShowSlackWarning] = useState(false);
   const ticket = query.data?.ticket;
   const refetch = query.refetch;
 
@@ -56,7 +57,11 @@ export default function SlackTicketStatus({ incidentId, query }) {
       }
     } catch (error) {
       setRequestState("idle");
-      setRequestError(error?.message || "Slack ticket creation failed. Please retry.");
+      if (error?.body?.code === "SLACK_NOT_CONFIGURED") {
+        setShowSlackWarning(true);
+      } else {
+        setRequestError(error?.message || "Slack ticket creation failed. Please retry.");
+      }
     }
   };
 
@@ -77,6 +82,7 @@ export default function SlackTicketStatus({ incidentId, query }) {
   }
 
   return (
+    <>
     <section aria-labelledby="slack-ticket-title" className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
@@ -132,5 +138,33 @@ export default function SlackTicketStatus({ incidentId, query }) {
         </div>
       )}
     </section>
+    {showSlackWarning && <SlackNotConfiguredDialog onClose={() => setShowSlackWarning(false)} />}
+    </>
   );
+}
+
+export function SlackNotConfiguredDialog({ onClose }) {
+  useEffect(() => {
+    const close = (event) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", close);
+    return () => document.removeEventListener("keydown", close);
+  }, [onClose]);
+
+  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/40 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <section role="dialog" aria-modal="true" aria-labelledby="slack-not-configured-title" className="w-full max-w-md rounded-xl border border-gray-200 bg-white shadow-xl">
+      <div className="flex items-start gap-3 border-b border-gray-100 px-5 py-4">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600"><AlertTriangle size={20} aria-hidden="true" /></span>
+        <div className="min-w-0 flex-1">
+          <h2 id="slack-not-configured-title" className="text-sm font-bold text-gray-900">Slack is not configured</h2>
+          <p className="mt-1 text-xs leading-5 text-gray-600">Configure and enable Slack with an incident channel in Integrations, then return here to create the ticket.</p>
+        </div>
+        <button type="button" onClick={onClose} aria-label="Close Slack configuration warning" className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
+      </div>
+      <div className="flex justify-end rounded-b-xl bg-gray-50 px-5 py-3">
+        <button type="button" onClick={onClose} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">Got it</button>
+      </div>
+    </section>
+  </div>;
 }

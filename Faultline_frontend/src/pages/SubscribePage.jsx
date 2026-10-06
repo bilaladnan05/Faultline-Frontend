@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import "../styles/landing.css";
 import { useApiResource } from "../hooks/useApiResource";
-import { createCheckout, listPlans } from "../api/endpoints";
+import { createCheckout, createFreeAccount, listPlans } from "../api/endpoints";
 
 /**
  * The public purchase page.
@@ -22,11 +22,9 @@ import { createCheckout, listPlans } from "../api/endpoints";
  * rather than the console's, because it is the second step of the marketing journey,
  * not the first step of the application.
  *
- * Card details are never collected here. The form opens a hosted checkout at the
- * payment provider and hands the browser over, which keeps card data out of this
- * codebase completely. Nothing is created until the provider tells the backend, over a
- * signed webhook, that the payment actually settled — so a purchaser who closes the tab
- * mid-payment leaves nothing behind to clean up.
+ * Card details are never collected here. Paid signup opens hosted checkout and waits
+ * for a signed payment webhook; Basic signup provisions directly without contacting
+ * the payment provider.
  *
  * The tiers are whatever `/billing/plans` returns, in the order it returns them. Which
  * tier can be bought here is the API's answer too (`checkout`), not a rule restated in
@@ -43,6 +41,7 @@ export default function SubscribePage() {
   const [accepted, setAccepted] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [signupComplete, setSignupComplete] = useState(null);
 
   const catalog = useMemo(() => plans.data?.plans ?? [], [plans.data]);
   const appName = plans.data?.applicationName ?? "Faultline";
@@ -53,13 +52,13 @@ export default function SubscribePage() {
   // stored, so the default appears the moment the catalog arrives without a second
   // render to set it.
   const defaultPlanId = useMemo(() => {
-    const buyable = catalog.filter((entry) => entry.checkout === "hosted");
+    const buyable = catalog.filter((entry) => entry.checkout !== "contact");
     return (buyable.find((entry) => entry.recommended) ?? buyable[0])?.id ?? null;
   }, [catalog]);
 
   const selectedId = selected ?? defaultPlanId;
   const plan = catalog.find((entry) => entry.id === selectedId) ?? null;
-  const free = plan?.priceLabel === "Free";
+  const free = plan?.id === "basic";
 
   const set = (key) => (event) =>
     setForm((prev) => ({ ...prev, [key]: event.target.value }));
@@ -77,6 +76,16 @@ export default function SubscribePage() {
     if (!canSubmit) return;
     setSubmitting(true);
     try {
+      if (free) {
+        const result = await createFreeAccount({
+          email: form.email.trim(),
+          fullName: form.fullName.trim() || undefined,
+          username: form.username.trim().toLowerCase() || undefined,
+        });
+        setSignupComplete(result);
+        setSubmitting(false);
+        return;
+      }
       const { checkoutUrl } = await createCheckout({
         email: form.email.trim(),
         plan: plan.id,
@@ -88,7 +97,10 @@ export default function SubscribePage() {
       setError(
         caught?.isNetwork
           ? "Cannot reach the service right now. Please try again shortly."
-          : caught?.message || "Could not start checkout. Please try again.",
+          : caught?.message ||
+            (free
+              ? "Could not create your account. Please try again."
+              : "Could not start checkout. Please try again."),
       );
       setSubmitting(false);
     }
@@ -141,14 +153,18 @@ export default function SubscribePage() {
                 {catalog.map((entry) => {
                   const Icon = TIER_ICONS[entry.id] ?? Zap;
                   const contactOnly = entry.checkout === "contact";
+                  const comingSoon = entry.id === "enterprise";
+                  const freeTier = entry.id === "basic";
                   const active = entry.id === selectedId;
                   return (
                     <li
                       key={entry.id}
                       className={`tier${active ? " is-active" : ""}${
                         entry.recommended ? " is-recommended" : ""
-                      }`}
+                      }${comingSoon ? " is-coming-soon" : ""}`}
+                      aria-disabled={comingSoon || undefined}
                     >
+                      <div className="tier-content">
                       {entry.recommended && (
                         <span className="tier-flag">Most popular</span>
                       )}
@@ -174,7 +190,7 @@ export default function SubscribePage() {
                         ))}
                       </ul>
 
-                      {contactOnly ? (
+                      {comingSoon ? null : contactOnly ? (
                         salesContact ? (
                           <a
                             className="btn full tier-cta"
@@ -194,18 +210,27 @@ export default function SubscribePage() {
                           type="button"
                           className={`btn full tier-cta${active ? " btn-primary" : ""}`}
                           aria-pressed={active}
-                          disabled={entry.available === false}
+                          disabled={!freeTier && entry.available === false}
                           onClick={() => {
                             setSelected(entry.id);
                             setError("");
+                            setSignupComplete(null);
                           }}
                         >
-                          {entry.available === false
+                          {!freeTier && entry.available === false
                             ? "Currently unavailable"
                             : active
                               ? "✓ Selected"
                               : `Choose ${entry.name}`}
                         </button>
+                      )}
+                      </div>
+                      {comingSoon && (
+                        <div className="tier-coming-soon" aria-label="Enterprise coming soon">
+                          <Building2 size={22} aria-hidden="true" />
+                          <strong>Coming soon</strong>
+                          <span>Enterprise access is currently in development.</span>
+                        </div>
                       )}
                     </li>
                   );
@@ -247,7 +272,9 @@ export default function SubscribePage() {
                     </li>
                     <li>
                       <Check size={15} aria-hidden="true" />
-                      <span>Administrator account created on purchase</span>
+                      <span>
+                        Administrator account created on {free ? "signup" : "purchase"}
+                      </span>
                     </li>
                   </ul>
                   <p className="hint">
@@ -262,14 +289,24 @@ export default function SubscribePage() {
                   <span className="eyebrow">Your details</span>
                 </div>
                 <div className="panel-body">
-                  {error && (
+                  {signupComplete ? (
+                    <div className="notice good" role="status">
+                      <Check size={16} aria-hidden="true" />
+                      <span>
+                        {signupComplete.deliveryPending
+                          ? "Your free account is ready. Your credentials email is delayed; please check again shortly."
+                          : `Your free account is ready. We sent sign-in credentials to ${signupComplete.email}.`}
+                        {" "}<Link to="/login">Sign in</Link>
+                      </span>
+                    </div>
+                  ) : error && (
                     <p role="alert" className="notice bad">
                       <AlertCircle size={14} aria-hidden="true" />
                       {error}
                     </p>
                   )}
 
-                  <form onSubmit={handleSubmit} noValidate>
+                  {!signupComplete && <form onSubmit={handleSubmit} noValidate>
                     <div className="field">
                       <label htmlFor="sub-email">Email address</label>
                       <input
@@ -336,7 +373,9 @@ export default function SubscribePage() {
                       disabled={!canSubmit || submitting}
                     >
                       {submitting
-                        ? "Opening secure checkout…"
+                        ? free
+                          ? "Creating your account…"
+                          : "Opening secure checkout…"
                         : free
                           ? `Start on ${plan.name}`
                           : `Subscribe & Pay ${plan.priceLabel}`}
@@ -346,10 +385,10 @@ export default function SubscribePage() {
                     <p className="hint" style={{ marginTop: "10px" }}>
                       <Lock size={11} aria-hidden="true" />{" "}
                       {free
-                        ? "Confirmation is handled by our payment provider. No card is collected."
+                        ? "No card or payment provider is required for the free plan."
                         : "Payment is handled by our payment provider. Card details never touch our servers."}
                     </p>
-                  </form>
+                  </form>}
                 </div>
               </div>
             </div>

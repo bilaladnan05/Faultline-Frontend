@@ -1,7 +1,12 @@
-import { useState } from "react";
-import { Check, Zap, Building2, Star, CreditCard } from "lucide-react";
-import { Link } from "react-router-dom";
-import { createBillingPortal } from "../api/endpoints";
+import { useEffect, useRef, useState } from "react";
+import { CalendarDays, Check, Zap, Building2, Star, CreditCard } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
+import {
+  createBillingPortal,
+  createPlanUpgrade,
+  getCheckoutStatus,
+  syncBillingSubscription,
+} from "../api/endpoints";
 import { useAuth } from "../auth/AuthContext";
 import TopBar from "../components/layout/TopBar";
 import { showToast } from "../utils/toast";
@@ -16,12 +21,11 @@ const plans = [
     iconBg: "bg-gray-100",
     iconColor: "text-gray-600",
     features: [
-      "Up to 3 AI Agent Bots",
-      "10,000 LLM Tokens / month",
-      "1 GitHub Repository",
-      "Daily scan frequency",
-      "Email notifications",
-      "Community support",
+      "Cluster Onboarding for 1 cluster",
+      "Onboarded Clusters overview",
+      "Incidents with evidence and technical reports",
+      "Alerts for unresolved incidents",
+      "Incident Ledger",
     ],
   },
   {
@@ -33,13 +37,13 @@ const plans = [
     iconBg: "bg-blue-50",
     iconColor: "text-blue-600",
     features: [
-      "Up to 10 AI Agent Bots",
-      "100,000 LLM Tokens / month",
-      "10 GitHub Repositories",
-      "Hourly scan frequency",
-      "Slack + Email notifications",
-      "Voice Agent (Twilio)",
-      "Priority support",
+      "Everything in Basic",
+      "Unlimited clusters",
+      "Runtime log monitoring",
+      "Reports and incident analytics",
+      "Voice Agent calls and SMS",
+      "Integrations, including Slack",
+      "Team & Roles",
     ],
   },
   {
@@ -51,14 +55,10 @@ const plans = [
     iconBg: "bg-purple-50",
     iconColor: "text-purple-600",
     features: [
-      "Unlimited AI Agent Bots",
-      "Unlimited LLM Tokens",
-      "Unlimited Repositories",
-      "Real-time scan frequency",
-      "Full notification suite",
-      "Custom AI model fine-tuning",
-      "Dedicated SLA + support",
-      "Audit logs &amp; compliance",
+      "Everything in Pro",
+      "Remediation Runner",
+      "Static Code Analyzer",
+      "Incident Playbook Generator",
     ],
   },
 ];
@@ -109,13 +109,119 @@ function describeSubscription(entitlements) {
   };
 }
 
+function formatBillingDate(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat(undefined, { dateStyle: "long" }).format(date);
+}
+
+function describeBillingDate(entitlements) {
+  const date = formatBillingDate(entitlements?.subscriptionPeriodEnd);
+  if (!date) return null;
+  if (entitlements.cancelAtPeriodEnd) {
+    return {
+      label: "Cancellation date",
+      detail: `Pro access ends on ${date}. Your organization will switch to Basic automatically.`,
+    };
+  }
+  if (entitlements.subscriptionStatus === "canceled") {
+    return {
+      label: "Plan ended",
+      detail: `Pro access ended on ${date}. Your organization is now on Basic.`,
+    };
+  }
+  if (entitlements.plan === "pro" && entitlements.subscriptionStatus === "active") {
+    return {
+      label: "Renewal date",
+      detail: `Your Pro plan renews on ${date}.`,
+    };
+  }
+  return null;
+}
+
 export default function SubscriptionPage() {
   // AuthContext loads this from GET /billing/entitlements. A public visitor has no
   // organization subscription, so no tier is presented as their current plan.
-  const { entitlements, isAuthenticated, isAdmin, loading } = useAuth();
+  const { entitlements, isAuthenticated, isAdmin, loading, refreshEntitlements } = useAuth();
+  const [searchParams] = useSearchParams();
   const [portalOpening, setPortalOpening] = useState(false);
+  const [upgradeOpening, setUpgradeOpening] = useState(false);
+  const [upgradeReturn, setUpgradeReturn] = useState(null);
+  const [billingSyncError, setBillingSyncError] = useState("");
+  const billingSyncStarted = useRef(false);
   const current = plans.find((plan) => plan.id === entitlements?.plan) ?? null;
   const subscription = describeSubscription(entitlements);
+  const billingDate = describeBillingDate(entitlements);
+  const checkoutOutcome = searchParams.get("checkout");
+  const checkoutSessionId = searchParams.get("session_id");
+  const displayedUpgradeReturn =
+    upgradeReturn ??
+    (checkoutOutcome === "cancel"
+      ? { type: "cancel", message: "Upgrade cancelled. No plan change was made." }
+      : checkoutOutcome === "success" && checkoutSessionId
+        ? { type: "pending", message: "Confirming your Pro upgrade…" }
+        : null);
+
+  useEffect(() => {
+    if (checkoutOutcome !== "success" || !checkoutSessionId) return undefined;
+
+    let cancelled = false;
+    let timer;
+    const confirmUpgrade = async (attempt = 0) => {
+      try {
+        const status = await getCheckoutStatus(checkoutSessionId);
+        const fresh = status.paid ? await refreshEntitlements() : null;
+        if (cancelled) return;
+        if (fresh?.plan === "pro") {
+          setUpgradeReturn({
+            type: "success",
+            message: "Upgrade complete. Pro features are now available.",
+          });
+          return;
+        }
+        if (attempt < 7) {
+          timer = window.setTimeout(() => confirmUpgrade(attempt + 1), 1500);
+          return;
+        }
+        setUpgradeReturn({
+          type: "pending",
+          message: status.paid
+            ? "Payment was received. Pro activation is still processing; refresh shortly."
+            : "Stripe is still confirming the payment. Your plan will update automatically once it settles.",
+        });
+      } catch (error) {
+        if (!cancelled)
+          setUpgradeReturn({
+            type: "error",
+            message: error?.message || "The upgrade status could not be confirmed.",
+          });
+      }
+    };
+    confirmUpgrade();
+    return () => {
+      cancelled = true;
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [checkoutOutcome, checkoutSessionId, refreshEntitlements]);
+
+  useEffect(() => {
+    if (
+      billingSyncStarted.current ||
+      loading ||
+      !isAdmin ||
+      current?.id !== "pro" ||
+      !entitlements?.enforced
+    ) return;
+    billingSyncStarted.current = true;
+    syncBillingSubscription()
+      .then(() => refreshEntitlements())
+      .catch((error) =>
+        setBillingSyncError(
+          error?.message || "The latest Stripe subscription status could not be loaded.",
+        ),
+      );
+  }, [current?.id, entitlements?.enforced, isAdmin, loading, refreshEntitlements]);
 
   const handleManageBilling = async () => {
     setPortalOpening(true);
@@ -125,6 +231,17 @@ export default function SubscriptionPage() {
     } catch (error) {
       showToast(error?.message || "The billing portal could not be opened.");
       setPortalOpening(false);
+    }
+  };
+
+  const handleUpgradeToPro = async () => {
+    setUpgradeOpening(true);
+    try {
+      const { checkoutUrl } = await createPlanUpgrade("pro");
+      window.location.assign(checkoutUrl);
+    } catch (error) {
+      showToast(error?.message || "The Pro upgrade could not be started.");
+      setUpgradeOpening(false);
     }
   };
 
@@ -161,6 +278,15 @@ export default function SubscriptionPage() {
             <div>
               <h2 className="text-sm font-bold text-gray-900">Subscription status</h2>
               <p className="mt-1 text-xs text-gray-500">{subscription.detail}</p>
+              {billingDate && (
+                <p
+                  aria-label={billingDate.label}
+                  className="mt-2 flex items-center gap-1.5 text-sm font-semibold text-gray-800"
+                >
+                  <CalendarDays size={14} aria-hidden="true" />
+                  {billingDate.detail}
+                </p>
+              )}
             </div>
             <span className={`shrink-0 rounded-full border px-3 py-1 text-xs font-bold ${subscription.className}`}>
               {subscription.label}
@@ -168,11 +294,48 @@ export default function SubscriptionPage() {
           </section>
         )}
 
+        {displayedUpgradeReturn && (
+          <div
+            role={displayedUpgradeReturn.type === "error" ? "alert" : "status"}
+            className={`rounded-xl border px-4 py-3 text-sm font-medium ${
+              displayedUpgradeReturn.type === "success"
+                ? "border-green-200 bg-green-50 text-green-800"
+                : displayedUpgradeReturn.type === "error"
+                  ? "border-red-200 bg-red-50 text-red-800"
+                  : displayedUpgradeReturn.type === "cancel"
+                    ? "border-gray-200 bg-gray-50 text-gray-700"
+                    : "border-blue-200 bg-blue-50 text-blue-800"
+            }`}
+          >
+            {displayedUpgradeReturn.message}
+          </div>
+        )}
+
+        {billingSyncError && (
+          <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            {billingSyncError}
+          </p>
+        )}
+
         {/* Tier Cards */}
         <div className="grid grid-cols-3 gap-5">
           {plans.map((plan) => {
             const Icon = plan.icon;
             const isCurrent = plan.id === current?.id;
+            const canUpgradeToPro =
+              plan.id === "pro" && current?.id === "basic" && isAdmin && entitlements?.enforced;
+            const isIncluded = plan.id === "basic" && current?.id === "pro";
+            const buttonLabel = isCurrent
+              ? "✓ Current Plan"
+              : plan.id === "enterprise"
+                ? "Coming Soon"
+                : isIncluded
+                  ? "Included in Pro"
+                  : plan.id === "pro"
+                    ? upgradeOpening
+                      ? "Opening Stripe…"
+                      : "Upgrade to Pro"
+                    : "Basic Plan";
             return (
               <div
                 key={plan.id}
@@ -196,16 +359,18 @@ export default function SubscriptionPage() {
                   {plan.features.map((f, i) => (
                     <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
                       <Check size={13} className={`flex-shrink-0 mt-0.5 ${isCurrent ? "text-blue-600" : "text-green-500"}`} />
-                      <span dangerouslySetInnerHTML={{ __html: f }} />
+                      <span>{f}</span>
                     </li>
                   ))}
                 </ul>
 
                 <button
-                  onClick={() => showToast(isCurrent ? "You are already on this plan." : `Upgrade to ${plan.name} initiated.`)}
+                  type="button"
+                  onClick={canUpgradeToPro ? handleUpgradeToPro : undefined}
+                  disabled={!canUpgradeToPro || upgradeOpening}
                   className={`w-full py-2.5 rounded-xl text-sm font-bold transition-colors ${isCurrent ? "bg-blue-600 text-white cursor-default" : plan.id === "enterprise" ? "border-2 border-purple-600 text-purple-600 hover:bg-purple-50" : "border-2 border-gray-200 text-gray-700 hover:border-gray-300"}`}
                 >
-                  {isCurrent ? "✓ Current Plan" : plan.id === "enterprise" ? "Contact Sales" : `Upgrade to ${plan.name}`}
+                  {buttonLabel}
                 </button>
               </div>
             );
@@ -225,7 +390,7 @@ export default function SubscriptionPage() {
                 Update payment methods, view invoices, and manage renewal or cancellation settings.
               </p>
             </div>
-            {isAdmin && entitlements?.subscriptionStatus ? (
+            {isAdmin && current?.id === "pro" && entitlements?.subscriptionStatus ? (
               <button
                 type="button"
                 onClick={handleManageBilling}
@@ -236,7 +401,11 @@ export default function SubscriptionPage() {
               </button>
             ) : (
               <span className="shrink-0 text-xs font-semibold text-gray-500">
-                {isAdmin ? "No billing customer available" : "Organization admins only"}
+                {isAdmin
+                  ? current?.id === "basic"
+                    ? "Upgrade to Pro to manage billing"
+                    : "No billing customer available"
+                  : "Organization admins only"}
               </span>
             )}
           </div>

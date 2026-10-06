@@ -512,15 +512,41 @@
 .fl-landing .step-list { margin: 0; padding: 0; list-style: none; display: grid; }
 .fl-landing .step {
   display: grid;
-  grid-template-columns: 26px 1fr;
-  gap: 14px;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: start;
+  column-gap: 14px;
   padding: 16px 0;
   border-bottom: 1px solid var(--line-soft);
 }
 .fl-landing .step:first-child { padding-top: 0; }
-.fl-landing .step:last-child { border-bottom: 0; }
-.fl-landing .step-n { font-family: var(--mono); font-size: 11px; color: var(--accent); padding-top: 3px; }
-.fl-landing .step h4 { margin: 0 0 4px; font-size: var(--step-0); font-weight: 500; letter-spacing: -0.02em; color: var(--fg); }
+.fl-landing .step:last-child { padding-bottom: 0; border-bottom: 0; }
+.fl-landing .step-n {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line));
+  border-radius: 50%;
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+}
+.fl-landing .step-copy { min-width: 0; }
+.fl-landing .step-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 1px 0 5px;
+  color: var(--fg);
+  font-size: var(--step-0);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.35;
+}
+.fl-landing .step-title svg { flex-shrink: 0; color: var(--accent); }
 .fl-landing .step p { margin: 0; color: var(--fg-muted); font-size: var(--step--1); line-height: 1.6; }
 .fl-landing .step code { font-family: var(--mono); font-size: 12px; color: var(--fg); }
 
@@ -761,6 +787,39 @@
   display: block;
   padding: 10px 0 0;
   border-top: 1px solid var(--line-soft);
+}
+.fl-landing .tier.is-coming-soon { overflow: hidden; }
+.fl-landing .tier.is-coming-soon:hover { border-color: var(--line); }
+.fl-landing .tier-content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+.fl-landing .tier.is-coming-soon .tier-content {
+  filter: blur(3px);
+  opacity: 0.42;
+  pointer-events: none;
+  user-select: none;
+}
+.fl-landing .tier-coming-soon {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 7px;
+  padding: 24px;
+  text-align: center;
+  color: var(--fg);
+  background: color-mix(in srgb, var(--bg-elev) 40%, transparent);
+}
+.fl-landing .tier-coming-soon strong { font-size: 1.1rem; }
+.fl-landing .tier-coming-soon span {
+  max-width: 210px;
+  color: var(--fg-muted);
+  font-size: 0.82rem;
 }
 
 /* The selector sits above the panels, so they need no extra gap of their own. */

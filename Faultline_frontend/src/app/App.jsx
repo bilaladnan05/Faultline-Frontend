@@ -64,7 +64,9 @@ export default function App() {
               element={
                 <RequireAuth>
                   <RequirePasswordChanged>
-                    <MfaSecurityPage />
+                    <AppLayout>
+                      <MfaSecurityPage />
+                    </AppLayout>
                   </RequirePasswordChanged>
                 </RequireAuth>
               }

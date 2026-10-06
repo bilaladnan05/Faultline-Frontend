@@ -1,14 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Server, RefreshCw, ShieldAlert, Boxes, LoaderCircle, Trash2 } from "lucide-react";
+import { RefreshCw, ShieldAlert, Boxes, LoaderCircle, Trash2 } from "lucide-react";
 import TopBar from "../components/layout/TopBar";
 import { AsyncSection, StaleBanner } from "../components/ui/AsyncState";
 import UninstallClusterDialog from "../components/clusters/UninstallClusterDialog";
 import { useApiResource } from "../hooks/useApiResource";
 import {
   getClusterOnboarding,
-  getReadiness,
-  getSystemInfo,
   listClusters,
   startClusterUninstall,
 } from "../api/endpoints";
@@ -34,8 +32,6 @@ export default function DeploymentsPage() {
   const [confirmingUninstall, setConfirmingUninstall] = useState(null);
 
   const registered = useApiResource(({ signal }) => listClusters({ signal }), []);
-  const readiness = useApiResource(({ signal }) => getReadiness({ signal }), []);
-  const system = useApiResource(({ signal }) => getSystemInfo({ signal }), []);
   const refetchClusters = registered.refetch;
 
   useEffect(() => {
@@ -115,12 +111,6 @@ export default function DeploymentsPage() {
     degraded: clusters.filter((c) => c.status === "degraded").length,
   };
 
-  // A 503 readiness response still carries the dependency report in its body.
-  const health = readiness.data ?? readiness.error?.body ?? null;
-  const dependencies = health?.dependencies ?? null;
-  // 'ok' | 'degraded' (non-critical dependency down) | 'unavailable' (503 body).
-  const readinessStatus = typeof health?.status === "string" ? health.status : "unavailable";
-
   return (
     <div className="flex flex-col flex-1">
       <TopBar
@@ -128,10 +118,7 @@ export default function DeploymentsPage() {
         action={
           <button
             type="button"
-            onClick={() => {
-              registered.refetch();
-              readiness.refetch();
-            }}
+            onClick={registered.refetch}
             className="flex items-center gap-2 border border-gray-200 text-gray-600 hover:bg-gray-50 text-sm font-semibold px-4 py-1.5 rounded-lg transition-colors"
           >
             <RefreshCw size={14} className={registered.refreshing ? "animate-spin" : ""} /> Refresh
@@ -151,56 +138,6 @@ export default function DeploymentsPage() {
               {clusters.length >= limit && " Upgrade to Pro to connect more."}
             </p>
           )}
-        </div>
-
-        {/* API status — the connection this whole app depends on. */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-gray-50 flex items-center justify-center">
-                <Server size={16} className="text-gray-500" />
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Faultline API</p>
-                <p className="text-sm font-semibold text-gray-900">
-                  {system.data
-                    ? `${system.data.application} v${system.data.version} · ${system.data.environment}`
-                    : system.error
-                      ? "Unreachable"
-                      : "Checking…"}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              {dependencies &&
-                Object.entries(dependencies).map(([name, value]) => {
-                  const state = typeof value === "string" ? value : (value?.status ?? "unknown");
-                  const healthy = state === "ok" || state === "up" || state === "healthy";
-                  return (
-                    <span
-                      key={name}
-                      className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border ${
-                        healthy ? "bg-green-50 text-green-700 border-green-200" : "bg-red-50 text-red-600 border-red-200"
-                      }`}
-                    >
-                      <span className={`w-1.5 h-1.5 rounded-full ${healthy ? "bg-green-500" : "bg-red-500"}`} />
-                      {name}
-                    </span>
-                  );
-                })}
-              <span
-                className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full border ${
-                  readinessStatus === "ok"
-                    ? "bg-green-50 text-green-700 border-green-200"
-                    : readinessStatus === "degraded"
-                      ? "bg-yellow-50 text-yellow-700 border-yellow-200"
-                      : "bg-red-50 text-red-600 border-red-200"
-                }`}
-              >
-                {readinessStatus === "ok" ? "Ready" : readinessStatus === "degraded" ? "Degraded" : "Not ready"}
-              </span>
-            </div>
-          </div>
         </div>
 
         <StaleBanner error={registered.data ? registered.error : null} onRetry={registered.refetch} />

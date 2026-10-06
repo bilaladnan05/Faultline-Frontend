@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AlertCircle, CheckCircle2, Copy, Download, KeyRound, LogOut, ShieldCheck } from "lucide-react";
+import QRCode from "qrcode";
 import {
   disableMfa,
   finishMfaEnrollment,
@@ -9,6 +10,7 @@ import {
   startMfaEnrollment,
 } from "../api/endpoints";
 import { useAuth } from "../auth/AuthContext";
+import TopBar from "../components/layout/TopBar";
 
 export default function MfaSecurityPage() {
   const navigate = useNavigate();
@@ -106,16 +108,24 @@ export default function MfaSecurityPage() {
   const logout = async () => { await signOut(); navigate("/login", { replace: true }); };
 
   if (!status) {
-    return <div className="min-h-screen bg-[#F5F6F8] flex items-center justify-center p-6 text-sm text-gray-500">{error || "Loading MFA settings…"}</div>;
+    return (
+      <div className="flex flex-1 flex-col">
+        <TopBar breadcrumbs={["Account Security", "MFA"]} />
+        <div className="flex flex-1 items-center justify-center bg-[#F5F6F8] p-6 text-sm text-gray-500">
+          {error || "Loading MFA settings…"}
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F6F8] px-4 py-10">
-      <main className="mx-auto max-w-2xl">
-        <div className="mb-6 flex items-center justify-between gap-4">
+    <div className="flex flex-1 flex-col">
+      <TopBar breadcrumbs={["Account Security", "MFA"]} />
+      <div className="flex-1 overflow-y-auto bg-[#F5F6F8] p-6">
+      <main className="mx-auto max-w-4xl space-y-6">
+        <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-blue-600">Account security</p>
-            <h1 className="mt-1 text-2xl font-bold text-gray-900">Multi-factor authentication</h1>
+            <h1 className="text-xl font-bold text-gray-900">Multi-factor authentication</h1>
             <p className="mt-1 text-sm text-gray-500">Protect {user?.email} with a time-based authenticator code.</p>
           </div>
           <ShieldCheck size={38} className={status.enabled ? "text-green-600" : "text-gray-300"} />
@@ -129,7 +139,7 @@ export default function MfaSecurityPage() {
         )}
 
         {!status.enabled && !setup && (
-          <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+          <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
             <h2 className="font-bold text-gray-900">Set up an authenticator app</h2>
             <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-gray-600">
               <li>Confirm your current password.</li>
@@ -149,24 +159,35 @@ export default function MfaSecurityPage() {
         )}
 
         {setup && (
-          <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+          <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
             <h2 className="font-bold text-gray-900">Add Faultline to your authenticator</h2>
-            <p className="mt-2 text-sm text-gray-600">Choose “enter setup key” in your app and use this secret:</p>
-            <div className="mt-3 flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-3 text-white">
-              <code className="flex-1 break-all text-sm font-bold tracking-wider">{setup.secret}</code>
-              <CopyButton text={setup.secret} label="Copy secret" />
+            <p className="mt-1 text-sm text-gray-600">
+              Scan the QR code with your authenticator app, then enter the generated 6-digit code.
+            </p>
+            <div className="mt-5 grid gap-6 md:grid-cols-[240px_minmax(0,1fr)] md:items-start">
+              <AuthenticatorQrCode value={setup.authenticatorUri} />
+              <div className="min-w-0">
+                <h3 className="text-sm font-bold text-gray-900">Can’t scan the code?</h3>
+                <p className="mt-1 text-xs leading-5 text-gray-500">
+                  Choose “enter setup key” in your authenticator and copy this secret manually.
+                </p>
+                <div className="mt-3 flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-3 text-white">
+                  <code className="flex-1 break-all text-sm font-bold tracking-wider">{setup.secret}</code>
+                  <CopyButton text={setup.secret} label="Copy secret" />
+                </div>
+                <p className="mt-3 text-xs text-gray-500">Time based · SHA-1 · 6 digits · 30-second period</p>
+                <a href={setup.authenticatorUri} className="mt-3 inline-block text-sm font-semibold text-blue-600 hover:underline">Open in an authenticator app</a>
+                <form onSubmit={verifyEnrollment} className="mt-5 space-y-3">
+                  <CodeField value={code} onChange={setCode} label="Current 6-digit code" />
+                  <PrimaryButton disabled={busy || !/^\d{6}$/.test(code)}>Verify and enable MFA</PrimaryButton>
+                </form>
+              </div>
             </div>
-            <p className="mt-3 text-xs text-gray-500">Type: time based · Algorithm: SHA-1 · Digits: 6 · Period: 30 seconds</p>
-            <a href={setup.authenticatorUri} className="mt-3 inline-block text-sm font-semibold text-blue-600 hover:underline">Open in an authenticator app</a>
-            <form onSubmit={verifyEnrollment} className="mt-5 space-y-3">
-              <CodeField value={code} onChange={setCode} label="Current 6-digit code" />
-              <PrimaryButton disabled={busy || !/^\d{6}$/.test(code)}>Verify and enable MFA</PrimaryButton>
-            </form>
           </section>
         )}
 
         {status.enabled && !recoveryCodes && (
-          <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+          <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
             <div className="flex items-start gap-3">
               <div className="rounded-xl bg-green-50 p-2 text-green-700"><CheckCircle2 size={20} /></div>
               <div>
@@ -192,6 +213,42 @@ export default function MfaSecurityPage() {
           {(status.enabled || !status.required) && <button type="button" onClick={leave} className="text-sm font-semibold text-blue-600 hover:underline">Continue to Faultline</button>}
         </div>
       </main>
+      </div>
+    </div>
+  );
+}
+
+function AuthenticatorQrCode({ value }) {
+  const [dataUrl, setDataUrl] = useState("");
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    QRCode.toDataURL(value, {
+      errorCorrectionLevel: "M",
+      margin: 2,
+      width: 220,
+      color: { dark: "#111827", light: "#ffffff" },
+    })
+      .then((url) => { if (!cancelled) setDataUrl(url); })
+      .catch(() => { if (!cancelled) setFailed(true); });
+    return () => { cancelled = true; };
+  }, [value]);
+
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white p-3 text-center shadow-sm">
+      {dataUrl ? (
+        <img
+          src={dataUrl}
+          alt="QR code for adding Faultline to an authenticator app"
+          className="mx-auto aspect-square w-full max-w-[220px]"
+        />
+      ) : (
+        <div className="flex aspect-square w-full items-center justify-center rounded-lg bg-gray-50 px-4 text-sm text-gray-500">
+          {failed ? "QR code unavailable. Use the manual setup key." : "Generating QR code…"}
+        </div>
+      )}
+      <p className="mt-2 text-xs text-gray-500">The QR code is generated locally in this browser.</p>
     </div>
   );
 }

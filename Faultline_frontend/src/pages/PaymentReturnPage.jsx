@@ -105,26 +105,35 @@ export default function PaymentReturnPage({ outcome = "success" }) {
                   </div>
                   <div className="panel-body">
                     <ol className="step-list">
-                      <li>
-                        <span className="step-n">1</span>
-                        <span>
-                          <Mail size={13} aria-hidden="true" /> The email arrives with
-                          your <strong>username</strong> and a{" "}
+                      <li className="step">
+                        <span className="step-n" aria-hidden="true">1</span>
+                        <div className="step-copy">
+                          <h3 className="step-title">
+                            <Mail size={15} aria-hidden="true" /> Check your inbox
+                          </h3>
+                          <p>
+                          The email contains your <strong>username</strong> and a{" "}
                           <strong>temporary password</strong>. It can take a minute or
                           two — check your spam folder if it does not appear.
-                        </span>
+                          </p>
+                        </div>
                       </li>
-                      <li>
-                        <span className="step-n">2</span>
-                        <span>Sign in with those credentials.</span>
+                      <li className="step">
+                        <span className="step-n" aria-hidden="true">2</span>
+                        <div className="step-copy">
+                          <h3 className="step-title">Sign in</h3>
+                          <p>Use the username and temporary password from the email.</p>
+                        </div>
                       </li>
-                      <li>
-                        <span className="step-n">3</span>
-                        <span>
-                          Choose your own password. Until you do, the account can reach
-                          nothing else — that is deliberate, because the temporary one
-                          travelled through email.
-                        </span>
+                      <li className="step">
+                        <span className="step-n" aria-hidden="true">3</span>
+                        <div className="step-copy">
+                          <h3 className="step-title">Secure your account</h3>
+                          <p>
+                            Choose a new password when prompted. Access remains restricted
+                            until the temporary password has been replaced.
+                          </p>
+                        </div>
                       </li>
                     </ol>
                   </div>

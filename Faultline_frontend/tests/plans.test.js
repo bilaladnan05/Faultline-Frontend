@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, test } from "node:test";
-import { createBillingPortal, getEntitlements } from "../src/api/endpoints.js";
+import { createBillingPortal, createFreeAccount, createPlanUpgrade, getEntitlements, syncBillingSubscription } from "../src/api/endpoints.js";
 import { FEATURES, clusterLimit, lockFor, planIncludes } from "../src/auth/plans.js";
 
 const root = resolve(import.meta.dirname, "..");
@@ -84,9 +84,77 @@ test("billing management opens through the authenticated Stripe portal endpoint"
   assert.doesNotMatch(page, /4242|Expires 08 \/ 26|July 17, 2026/);
 });
 
+test("Basic to Pro upgrade opens authenticated Stripe checkout", async () => {
+  globalThis.fetch = async (url, options) => {
+    createPlanUpgrade.last = { url: String(url), options };
+    return new Response(
+      JSON.stringify({ checkoutUrl: "https://checkout.stripe.test/upgrade_1" }),
+      { status: 201, headers: { "content-type": "application/json" } },
+    );
+  };
+  const result = await createPlanUpgrade("pro");
+  assert.equal(result.checkoutUrl, "https://checkout.stripe.test/upgrade_1");
+  assert.equal(createPlanUpgrade.last.url, "/api/billing/upgrade");
+  assert.equal(createPlanUpgrade.last.options.method, "POST");
+  assert.deepEqual(JSON.parse(createPlanUpgrade.last.options.body), { plan: "pro" });
+
+  const page = read("src/pages/SubscriptionPage.jsx");
+  assert.match(page, /await createPlanUpgrade\("pro"\)/);
+  assert.match(page, /window\.location\.assign\(checkoutUrl\)/);
+  assert.match(page, /await refreshEntitlements\(\)/);
+  assert.match(page, /Upgrade complete\. Pro features are now available\./);
+  assert.doesNotMatch(page, /Upgrade to \$\{plan\.name\} initiated/);
+});
+
+test("the subscription page synchronizes Stripe before showing renewal state", async () => {
+  globalThis.fetch = async (url, options) => {
+    syncBillingSubscription.last = { url: String(url), options };
+    return new Response(JSON.stringify({ synchronized: true }), {
+      status: 201,
+      headers: { "content-type": "application/json" },
+    });
+  };
+  assert.deepEqual(await syncBillingSubscription(), { synchronized: true });
+  assert.equal(syncBillingSubscription.last.url, "/api/billing/sync");
+  assert.equal(syncBillingSubscription.last.options.method, "POST");
+
+  const page = read("src/pages/SubscriptionPage.jsx");
+  assert.match(page, /syncBillingSubscription\(\)/);
+  assert.match(page, /\.then\(\(\) => refreshEntitlements\(\)\)/);
+});
+
+test("the free plan creates an account without opening Stripe", async () => {
+  globalThis.fetch = async (url, options) => {
+    createFreeAccount.last = { url: String(url), options };
+    return new Response(
+      JSON.stringify({ created: true, email: "free@example.com", deliveryPending: false }),
+      { status: 201, headers: { "content-type": "application/json" } },
+    );
+  };
+
+  const result = await createFreeAccount({ email: "free@example.com" });
+  assert.equal(result.created, true);
+  assert.equal(createFreeAccount.last.url, "/api/billing/free-signup");
+  assert.equal(createFreeAccount.last.options.method, "POST");
+
+  const page = read("src/pages/SubscribePage.jsx");
+  assert.match(page, /if \(free\)/);
+  assert.match(page, /await createFreeAccount\(/);
+  assert.match(page, /No card or payment provider is required for the free plan/);
+  assert.match(page, /disabled=\{!freeTier && entry\.available === false\}/);
+});
+
+test("Enterprise is blurred, unavailable, and lists its upcoming modules", () => {
+  const page = read("src/pages/SubscribePage.jsx");
+  const styles = read("src/styles/landing.css");
+  assert.match(page, /entry\.id === "enterprise"/);
+  assert.match(page, /Enterprise coming soon/);
+  assert.match(styles, /\.tier\.is-coming-soon \.tier-content[\s\S]*filter: blur\(3px\)/);
+});
+
 test("the subscription page marks the plan returned by entitlements as current", () => {
   const page = read("src/pages/SubscriptionPage.jsx");
-  assert.match(page, /const \{ entitlements, isAuthenticated, isAdmin, loading \} = useAuth\(\)/);
+  assert.match(page, /const \{ entitlements, isAuthenticated, isAdmin, loading, refreshEntitlements \} = useAuth\(\)/);
   assert.match(page, /plan\.id === entitlements\?\.plan/);
   assert.match(page, /const isCurrent = plan\.id === current\?\.id/);
   assert.doesNotMatch(page, /current:\s*true/);
@@ -100,6 +168,11 @@ test("the subscription page displays the subscription status returned by entitle
   for (const label of ["Active", "Past due", "Cancelled", "Incomplete"])
     assert.match(page, new RegExp(`label: "${label}"`));
   assert.match(page, /aria-label="Subscription status"/);
+  assert.match(page, /entitlements\?\.subscriptionPeriodEnd/);
+  assert.match(page, /entitlements\.cancelAtPeriodEnd/);
+  assert.match(page, /Your Pro plan renews on/);
+  assert.match(page, /Your organization will switch to Basic automatically/);
+  assert.match(page, /aria-label=\{billingDate\.label\}/);
 });
 
 test("the cluster onboarding page displays real cluster usage and allowance", () => {

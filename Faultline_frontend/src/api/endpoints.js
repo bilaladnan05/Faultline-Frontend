@@ -92,9 +92,21 @@ export const listPlans = (options = {}) =>
 export const createCheckout = (body, options = {}) =>
   apiPost("/billing/checkout", body, { ...options, auth: false });
 
+/** Creates a Basic account directly, without opening Stripe checkout. */
+export const createFreeAccount = (body, options = {}) =>
+  apiPost("/billing/free-signup", body, { ...options, auth: false });
+
 /** Opens Stripe's hosted portal for the signed-in organization's billing customer. */
 export const createBillingPortal = (options) =>
   apiPost("/billing/portal", undefined, options);
+
+/** Starts an authenticated upgrade for the signed-in organization. */
+export const createPlanUpgrade = (plan, options) =>
+  apiPost("/billing/upgrade", { plan }, options);
+
+/** Reconciles the local subscription state with Stripe. */
+export const syncBillingSubscription = (options) =>
+  apiPost("/billing/sync", undefined, options);
 
 /**
  * The signed-in account's tier: its plan, the modules it may open, the ones locked and

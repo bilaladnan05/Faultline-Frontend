@@ -113,6 +113,12 @@ export function AuthProvider({ children }) {
     return fresh;
   }, []);
 
+  const refreshEntitlements = useCallback(async () => {
+    const granted = await readEntitlements();
+    setEntitlements(granted);
+    return granted;
+  }, []);
+
   /**
    * Replaces the password and, for a provisioned admin, ends the confinement.
    *
@@ -146,6 +152,7 @@ export function AuthProvider({ children }) {
       signIn,
       completeMfaSignIn,
       refreshUser,
+      refreshEntitlements,
       signOut: signOutRemote,
       changePassword,
       isAdmin: isAdmin(user),
@@ -157,7 +164,7 @@ export function AuthProvider({ children }) {
       /** Whether the tier includes a module. A courtesy: the API enforces the same rule. */
       hasFeature: (feature) => planIncludes(entitlements, feature),
     }),
-    [user, loading, entitlements, signIn, completeMfaSignIn, refreshUser, signOutRemote, changePassword],
+    [user, loading, entitlements, signIn, completeMfaSignIn, refreshUser, refreshEntitlements, signOutRemote, changePassword],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

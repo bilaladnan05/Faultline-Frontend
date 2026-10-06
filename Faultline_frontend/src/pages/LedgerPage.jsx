@@ -1,6 +1,6 @@
 import { Search } from "lucide-react";
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { adaptIncident, formatTimestamp } from "../api/adapters";
 import { INCIDENT_SEVERITIES, INCIDENT_STATUSES, listIncidents } from "../api/endpoints";
 import TopBar from "../components/layout/TopBar";
@@ -17,7 +17,14 @@ import { livePollMs, useApiResource } from "../hooks/useApiResource";
  */
 export default function LedgerPage() {
   const navigate = useNavigate();
-  const [search, setSearch] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const search = searchParams.get("search") ?? "";
+  const setSearch = (value) => {
+    const next = new URLSearchParams(searchParams);
+    if (value) next.set("search", value);
+    else next.delete("search");
+    setSearchParams(next, { replace: true });
+  };
   const [severity, setSeverity] = useState("");
   const [status, setStatus] = useState("");
   const query = useApiResource(

@@ -7,6 +7,7 @@ import { createServer } from "vite";
 
 let server;
 let SlackTicketStatus;
+let SlackNotConfiguredDialog;
 
 before(async () => {
   server = await createServer({
@@ -15,9 +16,9 @@ before(async () => {
     plugins: [react()],
     server: { middlewareMode: true, hmr: false },
   });
-  ({ default: SlackTicketStatus } = await server.ssrLoadModule(
-    "/src/components/incidents/SlackTicketStatus.jsx",
-  ));
+  const module = await server.ssrLoadModule("/src/components/incidents/SlackTicketStatus.jsx");
+  SlackTicketStatus = module.default;
+  SlackNotConfiguredDialog = module.SlackNotConfiguredDialog;
 });
 
 after(async () => {
@@ -72,4 +73,12 @@ test("Slack ticket lookup failure remains scoped and retryable", () => {
   });
   assert.match(html, /status is unavailable/);
   assert.match(html, /Retry/);
+});
+
+test("Slack not configured warning is an accessible popup", () => {
+  const html = renderToStaticMarkup(React.createElement(SlackNotConfiguredDialog, { onClose() {} }));
+  assert.match(html, /role="dialog"/);
+  assert.match(html, /aria-modal="true"/);
+  assert.match(html, /Slack is not configured/);
+  assert.match(html, /Configure and enable Slack/);
 });

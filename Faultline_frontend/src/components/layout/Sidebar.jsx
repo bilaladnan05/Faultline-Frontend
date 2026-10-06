@@ -50,12 +50,10 @@ const MENUS = {
   },
 };
 
-/** Pages that belong to no single cluster; arriving on one leaves the cluster. */
+/** Registry pages explicitly leave cluster context; shared admin/security pages do not. */
 const ORGANIZATION_PATHS = new Set([
   NAV.clusters.to,
   NAV.onboarding.to,
-  NAV.audit.to,
-  NAV.subscription.to,
 ]);
 
 const initialsOf = (name = "", email = "") => {
@@ -76,9 +74,9 @@ export default function Sidebar() {
   const { activeProject, clearActiveProject } = useProject();
   const inCluster = Boolean(activeProject);
 
-  // The registry pages are everyone's starting point however they are reached - the
-  // switch button, the back button, sign-in or a typed URL - so arriving there closes
-  // whichever cluster was open instead of leaving its menu showing.
+  // Only the registry and onboarding pages explicitly leave the selected cluster.
+  // Audit, subscription and account security are shared pages in both menus, so opening
+  // one preserves the cluster the user was managing and keeps the cluster sidebar.
   useEffect(() => {
     if (ORGANIZATION_PATHS.has(pathname)) clearActiveProject();
   }, [pathname, clearActiveProject]);
