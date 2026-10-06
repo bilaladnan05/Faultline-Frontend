@@ -5,7 +5,7 @@
  * `bucketMs`, on the metrics endpoint) so a rename on either side fails loudly instead
  * of silently dropping a filter.
  */
-import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from "./client.js";
+import { apiDelete, apiGet, apiPatch, apiPost, apiPostForm, apiPut } from "./client.js";
 
 // Reporting remains in its own contract-focused module, but is re-exported here so
 // consumers keep using the app's established one-stop endpoint surface.
@@ -23,11 +23,52 @@ export {
 
 /* ---------------------------------------------------------- authentication */
 
-/** Exchanges credentials for the bearer token used by authenticated requests. */
+/** Exchanges credentials for the API's server-tracked HttpOnly cookie session. */
 export const login = (email, password, options = {}) =>
   apiPost("/auth/login", { email, password }, { ...options, auth: false });
 
-/** Revalidates the stored session and refreshes the user's current assignments. */
+export const requestPasswordReset = (email, options = {}) =>
+  apiPost(
+    "/auth/forgot-password",
+    { email },
+    { ...options, auth: false },
+  );
+
+export const resetPassword = (token, newPassword, options = {}) =>
+  apiPost(
+    "/auth/reset-password",
+    { token, newPassword },
+    { ...options, auth: false },
+  );
+
+/** Completes a password-authenticated login with a TOTP or one-time recovery code. */
+export const verifyMfaLogin = (challengeToken, code, rememberDevice = false, options = {}) =>
+  apiPost(
+    "/auth/mfa/verify",
+    { challengeToken, code, rememberDevice },
+    { ...options, auth: false },
+  );
+
+export const getMfaStatus = (options) =>
+  apiGet("/auth/mfa/status", undefined, options);
+
+export const startMfaEnrollment = (currentPassword, options) =>
+  apiPost("/auth/mfa/enrollment/start", { currentPassword }, options);
+
+export const finishMfaEnrollment = (enrollmentToken, code, options) =>
+  apiPost("/auth/mfa/enrollment/verify", { enrollmentToken, code }, options);
+
+export const disableMfa = (currentPassword, code, options) =>
+  apiPost("/auth/mfa/disable", { currentPassword, code }, options);
+
+export const regenerateMfaRecoveryCodes = (currentPassword, code, options) =>
+  apiPost(
+    "/auth/mfa/recovery-codes/regenerate",
+    { currentPassword, code },
+    options,
+  );
+
+/** Revalidates the cookie session and refreshes the user's current assignments. */
 export const getCurrentUser = (options) => apiGet("/auth/me", undefined, options);
 
 /** Records a best-effort logout before the auth context discards the local token. */
@@ -50,6 +91,10 @@ export const listPlans = (options = {}) =>
 /** Starts hosted checkout; account provisioning happens after signed payment. */
 export const createCheckout = (body, options = {}) =>
   apiPost("/billing/checkout", body, { ...options, auth: false });
+
+/** Opens Stripe's hosted portal for the signed-in organization's billing customer. */
+export const createBillingPortal = (options) =>
+  apiPost("/billing/portal", undefined, options);
 
 /**
  * The signed-in account's tier: its plan, the modules it may open, the ones locked and
@@ -149,6 +194,26 @@ export const unassignProject = (userId, projectId, options) =>
     options,
   );
 
+/**
+ * Admin-only, read-only audit trail. Organization scoping is enforced by the API from
+ * the authenticated administrator; the browser never supplies a tenant identifier.
+ */
+export const listAuditLog = (filter = {}, options) =>
+  apiGet(
+    "/admin/audit",
+    {
+      userId: filter.userId,
+      action: filter.action,
+      resourceType: filter.resourceType,
+      resourceId: filter.resourceId,
+      outcome: filter.outcome,
+      since: filter.since,
+      until: filter.until,
+      limit: filter.limit,
+    },
+    options,
+  );
+
 /* ------------------------------------------------------------- incidents */
 
 /**
@@ -170,6 +235,8 @@ export const listIncidents = (filter = {}, options) =>
 
 export const getIncident = (id, options) =>
   apiGet(`/incidents/${encodeURIComponent(id)}`, undefined, options);
+export const updateIncidentEta = (id, estimatedRestorationAt, options) =>
+  apiPatch(`/incidents/${encodeURIComponent(id)}/eta`, { estimatedRestorationAt }, options);
 
 /**
  * The incident's evidence window: stored anomaly evidence plus the telemetry
@@ -304,6 +371,24 @@ export const listContacts = (options) => apiGet("/contacts", undefined, options)
 export const createContact = (body, options) => apiPost("/contacts", body, options);
 export const updateContact = (id, body, options) =>
   apiPatch(`/contacts/${encodeURIComponent(id)}`, body, options);
+export const getVoiceAgentStatus = (options) =>
+  apiGet("/voice-agent/status", undefined, options);
+export const listVoiceAgentDeliveries = (options) =>
+  apiGet("/voice-agent/deliveries", undefined, options);
+export const requestVoiceAgentTestCall = (phoneNumber, options) =>
+  apiPost("/voice-agent/test-call", { phoneNumber }, options);
+export const getClusterSmsAgent = (clusterId, options) =>
+  apiGet(`/clusters/${encodeURIComponent(clusterId)}/sms-agent`, undefined, options);
+export const importClusterEndUsers = (clusterId, file, consentConfirmed, options) => {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("consentConfirmed", String(consentConfirmed));
+  return apiPostForm(`/clusters/${encodeURIComponent(clusterId)}/sms-agent/contacts/import`, form, options);
+};
+export const deleteClusterEndUser = (clusterId, contactId, options) =>
+  apiDelete(`/clusters/${encodeURIComponent(clusterId)}/sms-agent/contacts/${encodeURIComponent(contactId)}`, options);
+export const requestClusterSmsTest = (clusterId, options) =>
+  apiPost(`/clusters/${encodeURIComponent(clusterId)}/sms-agent/test`, undefined, options);
 export const listNotificationGroups = (options) =>
   apiGet("/notification-groups", undefined, options);
 export const listOnCallSchedules = (options) =>

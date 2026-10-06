@@ -1,6 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "../auth/AuthContext";
-import { RequireAuth, RequireFeature, RequirePasswordChanged, RequireRole } from "../auth/guards";
+import { RequireAuth, RequireFeature, RequireMfaEnrolled, RequirePasswordChanged, RequireRole } from "../auth/guards";
 import { FEATURES } from "../auth/plans";
 import { ROLES } from "../auth/roles";
 import AppLayout from "../components/layout/AppLayout";
@@ -14,6 +14,7 @@ import ReportingPage from "../pages/ReportingPage";
 import RuntimeMonitoringPage from "../pages/RuntimeMonitoringPage";
 import TeamRolesPage from "../pages/TeamRolesPage";
 import VoiceAgentPage from "../pages/VoiceAgentPage";
+import SmsAgentPage from "../pages/SmsAgentPage";
 import { ProjectProvider } from "../context/ProjectContext";
 import ChangePasswordPage from "../pages/ChangePasswordPage";
 import ForbiddenPage from "../pages/ForbiddenPage";
@@ -21,7 +22,13 @@ import LandingPage from "../pages/LandingPage";
 import LoginPage from "../pages/LoginPage";
 import PaymentReturnPage from "../pages/PaymentReturnPage";
 import SubscribePage from "../pages/SubscribePage";
+import SubscriptionPage from "../pages/SubscriptionPage";
 import ClusterOnboardingPage from "../pages/ClusterOnboardingPage";
+import MFAPage from "../pages/MFAPage";
+import MfaSecurityPage from "../pages/MfaSecurityPage";
+import ForgotPasswordPage from "../pages/ForgotPasswordPage";
+import ResetPasswordPage from "../pages/ResetPasswordPage";
+import AdminAuditPage from "../pages/admin/AdminAuditPage";
 
 export default function App() {
   return (
@@ -31,7 +38,11 @@ export default function App() {
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
+            <Route path="/mfa" element={<MFAPage />} />
             <Route path="/subscribe" element={<SubscribePage />} />
+            <Route path="/subscription" element={<SubscriptionPage />} />
             <Route
               path="/payment/success"
               element={<PaymentReturnPage outcome="success" />}
@@ -49,10 +60,22 @@ export default function App() {
               }
             />
             <Route
+              path="/security/mfa"
               element={
                 <RequireAuth>
                   <RequirePasswordChanged>
-                    <AppLayout />
+                    <MfaSecurityPage />
+                  </RequirePasswordChanged>
+                </RequireAuth>
+              }
+            />
+            <Route
+              element={
+                <RequireAuth>
+                  <RequirePasswordChanged>
+                    <RequireMfaEnrolled>
+                      <AppLayout />
+                    </RequireMfaEnrolled>
                   </RequirePasswordChanged>
                 </RequireAuth>
               }
@@ -111,11 +134,14 @@ export default function App() {
               <Route
                 path="voice-agent"
                 element={
-                  <RequireFeature feature={FEATURES.VOICE_AGENT}>
-                    <VoiceAgentPage />
-                  </RequireFeature>
+                  <RequireRole roles={[ROLES.ADMIN]}>
+                    <RequireFeature feature={FEATURES.VOICE_AGENT}>
+                      <VoiceAgentPage />
+                    </RequireFeature>
+                  </RequireRole>
                 }
               />
+              <Route path="sms-agent" element={<RequireRole roles={[ROLES.ADMIN]}><RequireFeature feature={FEATURES.VOICE_AGENT}><SmsAgentPage /></RequireFeature></RequireRole>} />
               <Route
                 path="team"
                 element={
@@ -123,6 +149,22 @@ export default function App() {
                     <RequireFeature feature={FEATURES.TEAM_MANAGEMENT}>
                       <TeamRolesPage />
                     </RequireFeature>
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="admin/audit"
+                element={
+                  <RequireRole roles={[ROLES.ADMIN]}>
+                    <AdminAuditPage />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="admin/subscription"
+                element={
+                  <RequireRole roles={[ROLES.ADMIN]}>
+                    <SubscriptionPage />
                   </RequireRole>
                 }
               />

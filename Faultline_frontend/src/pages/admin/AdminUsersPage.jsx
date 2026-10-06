@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import {
-  Users as UsersIcon, Plus, RefreshCw, X, Check, Shield, FolderPlus, UserX, UserCheck,
+  Users as UsersIcon, Plus, RefreshCw, X, Check, FolderPlus, UserX, UserCheck,
 } from "lucide-react";
 import TopBar from "../../components/layout/TopBar";
 import { AsyncSection, StaleBanner } from "../../components/ui/AsyncState";
@@ -11,6 +11,7 @@ import {
 } from "../../api/endpoints";
 import { ROLES, ROLE_STYLES, roleLabel } from "../../auth/roles";
 import { useAuth } from "../../auth/AuthContext";
+import { PASSWORD_POLICY_HINT, passwordPolicyError } from "../../auth/passwordPolicy";
 
 /**
  * User management, and with it project assignment.
@@ -148,8 +149,8 @@ export default function AdminUsersPage() {
         </AsyncSection>
 
         <p className="text-xs text-gray-400">
-          An Admin reaches every project by role, so administrators are shown as “All
-          projects” rather than being listed against individual ones.
+          Every role is scoped by explicit project assignment. A user with no assigned
+          projects cannot access project, incident, or telemetry data.
         </p>
       </div>
     </div>
@@ -158,7 +159,6 @@ export default function AdminUsersPage() {
 
 function UserRow({ user, isSelf, projects, projectName, busy, act }) {
   const [adding, setAdding] = useState(false);
-  const isAdminRow = user.role === ROLES.ADMIN;
   const assigned = user.projectIds ?? [];
   const unassigned = projects.filter((project) => !assigned.includes(project.id));
 
@@ -187,12 +187,7 @@ function UserRow({ user, isSelf, projects, projectName, busy, act }) {
       </td>
 
       <td className="px-4 py-3">
-        {isAdminRow ? (
-          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500">
-            <Shield size={12} /> All projects
-          </span>
-        ) : (
-          <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
             {assigned.map((projectId) => (
               <span
                 key={projectId}
@@ -247,8 +242,7 @@ function UserRow({ user, isSelf, projects, projectName, busy, act }) {
                 </button>
               )
             )}
-          </div>
-        )}
+        </div>
       </td>
 
       <td className="px-4 py-3">
@@ -296,7 +290,8 @@ function NewUserForm({ projects, onCancel, onCreate, busy }) {
         : [...prev.projectIds, projectId],
     }));
 
-  const valid = form.email.includes("@") && form.name.trim() && form.password.length >= 12;
+  const passwordError = passwordPolicyError(form.password);
+  const valid = form.email.includes("@") && form.name.trim() && form.password && !passwordError;
 
   return (
     <form
@@ -327,7 +322,7 @@ function NewUserForm({ projects, onCancel, onCreate, busy }) {
             ))}
           </select>
         </Field>
-        <Field label="Temporary password" hint="At least 12 characters; the API refuses shorter.">
+        <Field label="Temporary password" error={passwordError} hint={PASSWORD_POLICY_HINT}>
           <input type="password" value={form.password} onChange={set("password")} className={inputClass} />
         </Field>
       </div>
@@ -386,12 +381,12 @@ function NewUserForm({ projects, onCancel, onCreate, busy }) {
 const inputClass =
   "w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-gray-400";
 
-function Field({ label, hint, children }) {
+function Field({ label, hint, error, children }) {
   return (
     <div>
       <label className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
       {children}
-      {hint && <p className="text-xs text-gray-400 mt-1">{hint}</p>}
+      {error ? <p className="text-xs text-red-600 mt-1">{error}</p> : hint && <p className="text-xs text-gray-400 mt-1">{hint}</p>}
     </div>
   );
 }

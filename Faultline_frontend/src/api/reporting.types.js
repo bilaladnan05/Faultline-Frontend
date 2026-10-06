@@ -148,7 +148,8 @@
  * @property {{from: string, to: string}} period
  * @property {{available: boolean, overallStatus: ReadinessStatus, healthyServices: number, degradedServices: number, unhealthyServices: number}} health
  * @property {{total: number, critical: number, resolved: number, unresolved: number}} incidents
- * @property {{mttrMs: number | null, mttaMs: number | null}} performance
+ * @property {{mttrMs: number | null, mttaMs: number | null, resolutionRate: number}} performance
+ * @property {Readonly<Record<string, number>>} incidentsBySeverity
  * @property {readonly {service: string, incidentCount: number}[]} topAffectedServices
  * @property {readonly {classification: string, incidentCount: number}[]} commonIncidentCategories
  * @property {readonly IncidentTrendPoint[]} trends

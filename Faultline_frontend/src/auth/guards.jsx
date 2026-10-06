@@ -59,6 +59,15 @@ export function RequirePasswordChanged({ children }) {
   return children;
 }
 
+/** Holds accounts subject to mandatory MFA on the enrollment page. */
+export function RequireMfaEnrolled({ children }) {
+  const { isAuthenticated, mfaEnrollmentRequired, loading } = useAuth();
+  if (loading) return <Verifying />;
+  if (isAuthenticated && mfaEnrollmentRequired)
+    return <Navigate to="/security/mfa" replace />;
+  return children;
+}
+
 /**
  * Restricts a subtree to the listed roles.
  *

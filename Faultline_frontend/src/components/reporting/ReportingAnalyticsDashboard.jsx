@@ -49,7 +49,7 @@ function SystemHealthSummary({ query }) {
   if (!health?.available) return <SectionUnavailable title="System Health" message="System health unavailable" onRetry={query.refetch} />;
 
   return (
-    <section aria-labelledby="system-health-title" className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+    <section aria-labelledby="system-health-title" className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 h-full flex flex-col">
       <div className="flex items-center justify-between gap-3 mb-4">
         <div className="flex items-center gap-2"><HeartPulse size={15} className="text-gray-400" aria-hidden="true" /><h2 id="system-health-title" className="text-sm font-bold text-gray-900">System Health</h2></div>
         <StatusPill status={health.overallStatus} label={titleCase(health.overallStatus)} />
@@ -59,6 +59,11 @@ function SystemHealthSummary({ query }) {
         <HealthCount label="Degraded" value={health.degradedServices} className="text-yellow-700" />
         <HealthCount label="Unhealthy" value={health.unhealthyServices} className="text-red-600" />
       </dl>
+      <div className="mt-5 pt-4 border-t border-gray-100 space-y-3">
+        <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Reporting window</p><p className="text-xs font-medium text-gray-700 mt-1">{formatTimestamp(query.data.period.from)} – {formatTimestamp(query.data.period.to)}</p></div>
+        <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Summary generated</p><p className="text-xs font-medium text-gray-700 mt-1">{formatTimestamp(query.data.generatedAt)}</p></div>
+        <p className="text-xs text-gray-400 leading-relaxed">Health is read live from Faultline readiness checks; incident metrics use the selected reporting window.</p>
+      </div>
     </section>
   );
 }

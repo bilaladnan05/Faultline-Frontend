@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, test } from "node:test";
-import { getEntitlements } from "../src/api/endpoints.js";
+import { createBillingPortal, getEntitlements } from "../src/api/endpoints.js";
 import { FEATURES, clusterLimit, lockFor, planIncludes } from "../src/auth/plans.js";
 
 const root = resolve(import.meta.dirname, "..");
@@ -14,6 +14,7 @@ const basic = {
   planName: "Basic",
   enforced: true,
   limits: { clusters: 1 },
+  usage: { clusters: 1 },
   features: ["clusters", "cluster-onboarding", "incidents", "alerts", "incident-ledger"].map((id) => ({ id })),
   locked: [
     { id: "team-management", label: "Team & Roles", requiredPlan: "pro", requiredPlanName: "Pro" },
@@ -61,6 +62,54 @@ test("entitlements are read from the billing endpoint", async () => {
   assert.deepEqual(await getEntitlements(), basic);
   assert.equal(getEntitlements.last.url, "/api/billing/entitlements");
   assert.equal(getEntitlements.last.options.method, "GET");
+});
+
+test("billing management opens through the authenticated Stripe portal endpoint", async () => {
+  globalThis.fetch = async (url, options) => {
+    createBillingPortal.last = { url: String(url), options };
+    return new Response(
+      JSON.stringify({ portalUrl: "https://billing.stripe.test/session/portal_1" }),
+      { status: 200, headers: { "content-type": "application/json" } },
+    );
+  };
+  assert.deepEqual(await createBillingPortal(), {
+    portalUrl: "https://billing.stripe.test/session/portal_1",
+  });
+  assert.equal(createBillingPortal.last.url, "/api/billing/portal");
+  assert.equal(createBillingPortal.last.options.method, "POST");
+
+  const page = read("src/pages/SubscriptionPage.jsx");
+  assert.match(page, /window\.location\.assign\(portalUrl\)/);
+  assert.match(page, /Update payment methods, view invoices, and manage renewal or cancellation settings/);
+  assert.doesNotMatch(page, /4242|Expires 08 \/ 26|July 17, 2026/);
+});
+
+test("the subscription page marks the plan returned by entitlements as current", () => {
+  const page = read("src/pages/SubscriptionPage.jsx");
+  assert.match(page, /const \{ entitlements, isAuthenticated, isAdmin, loading \} = useAuth\(\)/);
+  assert.match(page, /plan\.id === entitlements\?\.plan/);
+  assert.match(page, /const isCurrent = plan\.id === current\?\.id/);
+  assert.doesNotMatch(page, /current:\s*true/);
+});
+
+test("the subscription page displays the subscription status returned by entitlements", () => {
+  const page = read("src/pages/SubscriptionPage.jsx");
+  assert.match(page, /entitlements\.subscriptionStatus/);
+  for (const status of ["active", "past_due", "canceled", "incomplete"])
+    assert.match(page, new RegExp(`${status}: \\{`));
+  for (const label of ["Active", "Past due", "Cancelled", "Incomplete"])
+    assert.match(page, new RegExp(`label: "${label}"`));
+  assert.match(page, /aria-label="Subscription status"/);
+});
+
+test("the cluster onboarding page displays real cluster usage and allowance", () => {
+  const page = read("src/pages/ClusterOnboardingPage.jsx");
+  const subscription = read("src/pages/SubscriptionPage.jsx");
+  assert.match(page, /entitlements\?\.usage\?\.clusters/);
+  assert.match(page, /aria-label="Cluster allowance"/);
+  assert.match(page, /aria-label="Cluster allowance used"/);
+  assert.doesNotMatch(page, /Usage across your organization|Registered clusters/);
+  assert.doesNotMatch(subscription, /Registered clusters|Cluster allowance used/);
 });
 
 test("the session loads the tier with the identity and exposes hasFeature", () => {
@@ -126,8 +175,19 @@ test("the sidebar marks every page with its module and locks what the plan lacks
   const nav = sidebar.match(/const NAV = \{([\s\S]*?)\n\};/)?.[1];
   assert.ok(nav, "NAV is declared");
   const items = nav.split("\n").filter((line) => /^\s+\w+: \{ to:/.test(line));
-  assert.equal(items.length, 9);
-  for (const item of items) assert.match(item, /feature: FEATURES\.\w+ \}/);
+  assert.equal(items.length, 13);
+  for (
+    const item of items.filter(
+      (item) =>
+        !item.includes("security:") &&
+        !item.includes("audit:") &&
+        !item.includes("subscription:"),
+    )
+  )
+    assert.match(item, /feature: FEATURES\.\w+ \}/);
+  assert.match(nav, /security: \{ to: "\/security\/mfa"/);
+  assert.match(nav, /audit: \{ to: "\/admin\/audit"/);
+  assert.match(nav, /subscription: \{ to: "\/admin\/subscription"/);
   assert.match(sidebar, /const lock = lockFor\(entitlements, feature\)/);
   assert.match(sidebar, /<Lock size=\{9\} \/> \{lock\.requiredPlanName\}/);
 });

@@ -4,11 +4,14 @@ import {
   RefreshCw, UserCheck, UserX, Users, X,
 } from "lucide-react";
 import {
+  assignClusterSre,
   assignProject,
   createContact,
   createUser,
+  getClusterSres,
   listContacts,
   listUsers,
+  unassignClusterSre,
   unassignProject,
   updateContact,
   updateUser,
@@ -17,9 +20,8 @@ import { useAuth } from "../../auth/AuthContext";
 import { ROLES } from "../../auth/roles";
 import { useApiResource } from "../../hooks/useApiResource";
 import { AsyncSection } from "../ui/AsyncState";
+import { PASSWORD_POLICY_HINT, passwordPolicyError } from "../../auth/passwordPolicy";
 
-/** The API applies the same floor; checking here only saves a wasted round trip. */
-const MINIMUM_PASSWORD = 12;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Mirrors `normalizePhoneNumber` in @faultline/notifications, so a bad number is caught
 // before the account exists rather than after.
@@ -32,6 +34,7 @@ const normalizePhone = (value) => value.trim().replace(/[\s()-]/g, "");
  * The backend keeps an engineer as three records, and this card edits them together:
  *   - the user account (`/admin/users`), which signs in;
  *   - project assignments, which decide which clusters that account can see;
+ *   - SRE assignments, which decide which cluster incidents call that engineer;
  *   - a notification contact linked by `userId`, which is the phone Retell calls.
  *
  * The phone number is compulsory and voice is always on: the API creates the account and
@@ -49,6 +52,18 @@ export default function OnsiteEngineersCard({ clusters }) {
   const organizationId = currentUser?.organizationId;
   const users = useApiResource(({ signal }) => listUsers({ signal }), []);
   const contacts = useApiResource(({ signal }) => listContacts({ signal }), []);
+  const clusterIds = clusters.map((cluster) => cluster.id).sort();
+  const sreAssignments = useApiResource(
+    async ({ signal }) =>
+      Promise.all(
+        clusters.map(async (cluster) => ({
+          clusterId: cluster.id,
+          result: await getClusterSres(cluster.id, { signal }),
+        })),
+      ),
+    clusterIds,
+    { enabled: clusters.length > 0 },
+  );
   const [editing, setEditing] = useState(null);
   const [busy, setBusy] = useState(null);
   const [message, setMessage] = useState(null);
@@ -77,6 +92,19 @@ export default function OnsiteEngineersCard({ clusters }) {
     return (id) => names.get(id) ?? id;
   }, [clusters]);
 
+  const incidentClustersFor = useMemo(() => {
+    const byUser = new Map();
+    for (const entry of sreAssignments.data ?? []) {
+      for (const engineer of entry.result?.items ?? []) {
+        if (!engineer.assigned) continue;
+        const current = byUser.get(engineer.id) ?? [];
+        current.push(entry.clusterId);
+        byUser.set(engineer.id, current);
+      }
+    }
+    return (userId) => byUser.get(userId) ?? [];
+  }, [sreAssignments.data]);
+
   /** Runs one change, reports the API's own answer, and re-reads what it touched. */
   const run = async (key, work, success) => {
     setBusy(key);
@@ -95,7 +123,7 @@ export default function OnsiteEngineersCard({ clusters }) {
       return false;
     } finally {
       // Refreshed on failure too: a create can succeed before its phone number fails.
-      await Promise.all([users.refetch(), contacts.refetch()]);
+      await Promise.all([users.refetch(), contacts.refetch(), sreAssignments.refetch()]);
       setBusy(null);
     }
   };
@@ -113,17 +141,20 @@ export default function OnsiteEngineersCard({ clusters }) {
   const create = (values) =>
     run(
       "create",
-      () =>
-        createUser({
+      async () => {
+        const created = await createUser({
           email: values.email,
           name: values.name,
           role: ROLES.ONSITE_ENGINEER,
-          password: values.password,
           projectIds: values.projectIds,
           phoneNumber: values.phone,
           smsEnabled: values.smsEnabled,
-        }),
-      `${values.email} was added.`,
+        });
+        await Promise.all(
+          values.incidentClusterIds.map((clusterId) => assignClusterSre(clusterId, created.id)),
+        );
+      },
+      `${values.email} was added and first-time sign-in credentials were emailed.`,
     );
 
   const update = (engineer, contact, values) =>
@@ -166,8 +197,24 @@ export default function OnsiteEngineersCard({ clusters }) {
   const revoke = (engineer, projectId) =>
     run(
       engineer.id,
-      () => unassignProject(engineer.id, projectId),
+      async () => {
+        if (incidentClustersFor(engineer.id).includes(projectId))
+          await unassignClusterSre(projectId, engineer.id);
+        await unassignProject(engineer.id, projectId);
+      },
       `${engineer.name} can no longer see ${clusterName(projectId)}.`,
+    );
+
+  const setIncidentResponsibility = (engineer, clusterId, assigned) =>
+    run(
+      engineer.id,
+      () =>
+        assigned
+          ? assignClusterSre(clusterId, engineer.id)
+          : unassignClusterSre(clusterId, engineer.id),
+      assigned
+        ? `${engineer.name} will receive incident calls for ${clusterName(clusterId)}.`
+        : `${engineer.name} was removed from incident calls for ${clusterName(clusterId)}.`,
     );
 
   const editingEngineer =
@@ -183,8 +230,7 @@ export default function OnsiteEngineersCard({ clusters }) {
           <div>
             <h2 className="text-sm font-bold text-gray-900">Onsite Engineers</h2>
             <p className="mt-1 text-xs text-gray-500">
-              Accounts that sign in to Faultline. Cluster access decides what each engineer can see; the
-              phone number is where incident calls and SMS go.
+              Cluster access controls visibility. Incident calls separately controls which cluster alerts call each engineer.
             </p>
           </div>
         </div>
@@ -194,6 +240,7 @@ export default function OnsiteEngineersCard({ clusters }) {
             onClick={() => {
               users.refetch();
               contacts.refetch();
+              sreAssignments.refetch();
             }}
             className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-semibold text-gray-600 hover:bg-gray-50"
           >
@@ -269,7 +316,7 @@ export default function OnsiteEngineersCard({ clusters }) {
             <table className="w-full text-sm">
               <thead className="bg-gray-50">
                 <tr className="text-left">
-                  {["Engineer", "Phone", "Cluster access", "Status", ""].map((heading) => (
+                  {["Engineer", "Phone", "Cluster access", "Incident calls", "Status", ""].map((heading) => (
                     <th
                       key={heading}
                       className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-gray-400"
@@ -286,6 +333,7 @@ export default function OnsiteEngineersCard({ clusters }) {
                     engineer={engineer}
                     contact={contactFor(engineer.id)}
                     clusters={clusters}
+                    incidentClusterIds={incidentClustersFor(engineer.id)}
                     busy={busy === engineer.id}
                     locked={Boolean(busy)}
                     onEdit={() => {
@@ -295,6 +343,9 @@ export default function OnsiteEngineersCard({ clusters }) {
                     onToggle={() => toggleStatus(engineer)}
                     onAccessChange={(projectId, granted) =>
                       granted ? grant(engineer, projectId) : revoke(engineer, projectId)
+                    }
+                    onIncidentChange={(clusterId, assigned) =>
+                      setIncidentResponsibility(engineer, clusterId, assigned)
                     }
                   />
                 ))}
@@ -307,7 +358,7 @@ export default function OnsiteEngineersCard({ clusters }) {
   );
 }
 
-function EngineerRow({ engineer, contact, clusters, busy, locked, onEdit, onToggle, onAccessChange }) {
+function EngineerRow({ engineer, contact, clusters, incidentClusterIds, busy, locked, onEdit, onToggle, onAccessChange, onIncidentChange }) {
   const active = engineer.status === "active";
   const phone = contact?.enabled ? contact : null;
 
@@ -346,6 +397,18 @@ function EngineerRow({ engineer, contact, clusters, busy, locked, onEdit, onTogg
           selected={engineer.projectIds ?? []}
           disabled={locked}
           onChange={onAccessChange}
+        />
+      </td>
+
+      <td className="px-4 py-3">
+        <ClusterAccessDropdown
+          label={`Incident calls for ${engineer.name}`}
+          clusters={clusters.filter((cluster) => (engineer.projectIds ?? []).includes(cluster.id))}
+          selected={incidentClusterIds}
+          disabled={locked || !active}
+          emptyLabel="Not assigned to incident calls"
+          noClustersLabel="Grant cluster access first."
+          onChange={onIncidentChange}
         />
       </td>
 
@@ -396,6 +459,7 @@ function EngineerForm({ engineer, contact, clusters, busy, onCancel, onSubmit })
     phone: contact?.phoneNumber ?? "",
     smsEnabled: contact ? contact.smsEnabled : true,
     projectIds: [],
+    incidentClusterIds: [],
   }));
   const set = (key) => (event) => {
     const { type, checked, value } = event.target;
@@ -407,18 +471,27 @@ function EngineerForm({ engineer, contact, clusters, busy, onCancel, onSubmit })
       projectIds: granted
         ? [...new Set([...prev.projectIds, id])]
         : prev.projectIds.filter((value) => value !== id),
+      incidentClusterIds: granted
+        ? prev.incidentClusterIds
+        : prev.incidentClusterIds.filter((value) => value !== id),
+    }));
+  const setIncidentCluster = (id, assigned) =>
+    setForm((prev) => ({
+      ...prev,
+      incidentClusterIds: assigned
+        ? [...new Set([...prev.incidentClusterIds, id])]
+        : prev.incidentClusterIds.filter((value) => value !== id),
     }));
 
   const phone = normalizePhone(form.phone);
   const emailError =
     !editing && form.email.trim() && !EMAIL.test(form.email.trim()) ? "Enter a valid email address." : null;
-  const passwordError =
-    form.password && form.password.length < MINIMUM_PASSWORD ? `At least ${MINIMUM_PASSWORD} characters.` : null;
+  const passwordError = editing ? passwordPolicyError(form.password) : null;
   const phoneError =
     phone && !E164.test(phone) ? "Use international format with the country code, e.g. +923001234567." : null;
   const valid =
     Boolean(form.name.trim()) &&
-    (editing || (EMAIL.test(form.email.trim()) && form.password.length >= MINIMUM_PASSWORD)) &&
+    (editing || EMAIL.test(form.email.trim())) &&
     !passwordError &&
     E164.test(phone);
 
@@ -432,6 +505,7 @@ function EngineerForm({ engineer, contact, clusters, busy, onCancel, onSubmit })
       phone,
       smsEnabled: form.smsEnabled,
       projectIds: form.projectIds,
+      incidentClusterIds: form.incidentClusterIds,
     });
   };
 
@@ -468,23 +542,28 @@ function EngineerForm({ engineer, contact, clusters, busy, onCancel, onSubmit })
           </Field>
         )}
 
-        <Field
-          label={editing ? "New password" : "Initial password"}
-          error={passwordError}
-          hint={
-            editing
-              ? "Leave blank to keep the current password."
-              : `At least ${MINIMUM_PASSWORD} characters. Share it with the engineer securely.`
-          }
-        >
-          <input
-            type="password"
-            value={form.password}
-            onChange={set("password")}
-            autoComplete="new-password"
-            className={inputClass}
-          />
-        </Field>
+        {editing && (
+          <Field
+            label="New password"
+            error={passwordError}
+            hint={`Leave blank to keep the current password. ${PASSWORD_POLICY_HINT}`}
+          >
+            <input
+              type="password"
+              value={form.password}
+              onChange={set("password")}
+              autoComplete="new-password"
+              className={inputClass}
+            />
+          </Field>
+        )}
+
+        {!editing && (
+          <div className="rounded-lg border border-blue-100 bg-white/70 px-4 py-3 text-sm text-blue-900">
+            A secure temporary password will be generated automatically and emailed to the engineer.
+            They must replace it when they first sign in.
+          </div>
+        )}
 
         <Field
           label="Phone number"
@@ -514,19 +593,32 @@ function EngineerForm({ engineer, contact, clusters, busy, onCancel, onSubmit })
       </div>
 
       {!editing && (
-        <Field
-          label="Cluster access"
-          hint="An engineer with no clusters can sign in but sees nothing. You can change this later in the table."
-        >
-          <div className="max-w-sm">
+        <div className="grid gap-4 md:grid-cols-2">
+          <Field
+            label="Cluster access"
+            hint="Controls which clusters this engineer can see after signing in."
+          >
             <ClusterAccessDropdown
               label="Cluster access for the new engineer"
               clusters={clusters}
               selected={form.projectIds}
               onChange={setCluster}
             />
-          </div>
-        </Field>
+          </Field>
+          <Field
+            label="Incident call responsibility"
+            hint="Critical incidents on these clusters will call this engineer."
+          >
+            <ClusterAccessDropdown
+              label="Incident calls for the new engineer"
+              clusters={clusters.filter((cluster) => form.projectIds.includes(cluster.id))}
+              selected={form.incidentClusterIds}
+              onChange={setIncidentCluster}
+              emptyLabel="Not assigned to incident calls"
+              noClustersLabel="Grant cluster access first."
+            />
+          </Field>
+        </div>
       )}
 
       <div className="flex items-center gap-2">
@@ -555,7 +647,7 @@ function EngineerForm({ engineer, contact, clusters, busy, onCancel, onSubmit })
  * reported as `onChange(clusterId, granted)`; the caller decides whether that is an API
  * call (a table row) or form state (a new engineer).
  */
-function ClusterAccessDropdown({ label, clusters, selected, disabled = false, onChange }) {
+function ClusterAccessDropdown({ label, clusters, selected, disabled = false, onChange, emptyLabel = "No clusters, sees nothing", noClustersLabel = "You have no onboarded clusters yet." }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
 
@@ -577,7 +669,7 @@ function ClusterAccessDropdown({ label, clusters, selected, disabled = false, on
   const chosen = selected.map((id) => names.get(id) ?? id);
   const summary =
     chosen.length === 0
-      ? "No clusters, sees nothing"
+      ? emptyLabel
       : chosen.length <= 2
         ? chosen.join(", ")
         : `${chosen[0]} +${chosen.length - 1} more`;
@@ -599,7 +691,7 @@ function ClusterAccessDropdown({ label, clusters, selected, disabled = false, on
       {open && (
         <div className="absolute left-0 z-20 mt-1 w-full min-w-60 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
           {clusters.length === 0 ? (
-            <p className="px-3 py-2 text-xs text-gray-400">You have no onboarded clusters yet.</p>
+            <p className="px-3 py-2 text-xs text-gray-400">{noClustersLabel}</p>
           ) : (
             clusters.map((cluster) => (
               <label
