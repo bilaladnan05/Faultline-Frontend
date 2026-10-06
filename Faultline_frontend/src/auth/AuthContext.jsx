@@ -101,8 +101,8 @@ export function AuthProvider({ children }) {
     return session.user;
   }, [adoptSession]);
 
-  const completeMfaSignIn = useCallback(async (challengeToken, code) => {
-    const session = await verifyMfaLogin(challengeToken, code);
+  const completeMfaSignIn = useCallback(async (challengeToken, code, rememberDevice = false) => {
+    const session = await verifyMfaLogin(challengeToken, code, rememberDevice);
     await adoptSession(session);
     return session.user;
   }, [adoptSession]);

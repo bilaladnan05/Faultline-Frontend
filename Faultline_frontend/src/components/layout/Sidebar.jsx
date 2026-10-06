@@ -3,7 +3,7 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   ArrowLeftRight, Bell, Monitor, BookOpen, MessageSquareText,
   BarChart2, Lock, LogOut, Phone, Users, Server, Zap, Plug, Network, ShieldCheck,
-  ScrollText,
+  ScrollText, CreditCard,
 } from "lucide-react";
 import { useAuth } from "../../auth/AuthContext";
 import { FEATURES, lockFor } from "../../auth/plans";
@@ -26,6 +26,7 @@ const NAV = {
   smsAgent: { to: "/sms-agent", icon: MessageSquareText, label: "SMS Agent", feature: FEATURES.VOICE_AGENT },
   team: { to: "/team", icon: Users, label: "Team & Roles", feature: FEATURES.TEAM_MANAGEMENT },
   audit: { to: "/admin/audit", icon: ScrollText, label: "Audit Log" },
+  subscription: { to: "/admin/subscription", icon: CreditCard, label: "Subscription" },
   security: { to: "/security/mfa", icon: ShieldCheck, label: "Account Security" },
 };
 
@@ -36,10 +37,10 @@ const NAV = {
 const MENUS = {
   /** Org owner (admin): organization pages, then everything but the cluster registry. */
   owner: {
-    start: [NAV.clusters, NAV.onboarding, NAV.team, NAV.audit, NAV.integrations, NAV.security],
+    start: [NAV.clusters, NAV.onboarding, NAV.team, NAV.audit, NAV.subscription, NAV.integrations, NAV.security],
     cluster: [
       NAV.alerts, NAV.integrations, NAV.runtime,
-      NAV.ledger, NAV.reporting, NAV.voiceAgent, NAV.smsAgent, NAV.team, NAV.audit, NAV.security,
+      NAV.ledger, NAV.reporting, NAV.voiceAgent, NAV.smsAgent, NAV.team, NAV.audit, NAV.subscription, NAV.security,
     ],
   },
   /** Onsite engineer: pick a cluster, then only its operational pages. */
@@ -54,6 +55,7 @@ const ORGANIZATION_PATHS = new Set([
   NAV.clusters.to,
   NAV.onboarding.to,
   NAV.audit.to,
+  NAV.subscription.to,
 ]);
 
 const initialsOf = (name = "", email = "") => {

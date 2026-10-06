@@ -67,6 +67,13 @@ test("cluster access is granted and revoked per user and project", async () => {
   assert.equal(respond.last.options.method, "DELETE");
 });
 
+test("administrators are shown their explicit project assignments", () => {
+  const page = read("src/pages/admin/AdminUsersPage.jsx");
+  assert.match(page, /Every role is scoped by explicit project assignment/);
+  assert.doesNotMatch(page, /All projects|Admin reaches every project/);
+  assert.doesNotMatch(page, /isAdminRow/);
+});
+
 test("incident call responsibility uses the cluster SRE routes", async () => {
   respond({ items: [] });
   await getClusterSres("prod/eu");

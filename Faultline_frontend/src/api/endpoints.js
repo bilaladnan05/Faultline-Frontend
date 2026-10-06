@@ -42,10 +42,10 @@ export const resetPassword = (token, newPassword, options = {}) =>
   );
 
 /** Completes a password-authenticated login with a TOTP or one-time recovery code. */
-export const verifyMfaLogin = (challengeToken, code, options = {}) =>
+export const verifyMfaLogin = (challengeToken, code, rememberDevice = false, options = {}) =>
   apiPost(
     "/auth/mfa/verify",
-    { challengeToken, code },
+    { challengeToken, code, rememberDevice },
     { ...options, auth: false },
   );
 
@@ -91,6 +91,10 @@ export const listPlans = (options = {}) =>
 /** Starts hosted checkout; account provisioning happens after signed payment. */
 export const createCheckout = (body, options = {}) =>
   apiPost("/billing/checkout", body, { ...options, auth: false });
+
+/** Opens Stripe's hosted portal for the signed-in organization's billing customer. */
+export const createBillingPortal = (options) =>
+  apiPost("/billing/portal", undefined, options);
 
 /**
  * The signed-in account's tier: its plan, the modules it may open, the ones locked and

@@ -9,8 +9,10 @@ export default function MFAPage() {
   const { completeMfaSignIn } = useAuth();
   const challengeToken = location.state?.challengeToken;
   const email = location.state?.email || "your account";
+  const trustedDeviceTtlDays = location.state?.trustedDeviceTtlDays || 30;
   const [code, setCode] = useState("");
   const [recoveryMode, setRecoveryMode] = useState(false);
+  const [rememberDevice, setRememberDevice] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const input = useRef(null);
@@ -31,7 +33,7 @@ export default function MFAPage() {
     setLoading(true);
     setError("");
     try {
-      const user = await completeMfaSignIn(challengeToken, normalized);
+      const user = await completeMfaSignIn(challengeToken, normalized, rememberDevice);
       navigate(user?.mustChangePassword ? "/change-password" : "/clusters", { replace: true });
     } catch (caught) {
       setError(
@@ -82,6 +84,18 @@ export default function MFAPage() {
               aria-label={recoveryMode ? "Recovery code" : "Authenticator code"}
               className="w-full h-14 text-center text-xl tracking-[0.3em] font-bold border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
             />
+            <label className="flex items-start gap-2.5 cursor-pointer text-left">
+              <input
+                type="checkbox"
+                checked={rememberDevice}
+                onChange={(event) => setRememberDevice(event.target.checked)}
+                className="w-4 h-4 mt-0.5 rounded border-gray-300 text-blue-600"
+              />
+              <span>
+                <span className="block text-sm font-medium text-gray-700">Trust this device for {trustedDeviceTtlDays} days</span>
+                <span className="block text-xs text-gray-500 mt-0.5">Skip the MFA code after entering your password on this browser.</span>
+              </span>
+            </label>
             <button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg text-sm disabled:opacity-60">
               {loading ? "Verifying…" : "Verify and sign in"}
             </button>

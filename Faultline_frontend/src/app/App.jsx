@@ -22,6 +22,7 @@ import LandingPage from "../pages/LandingPage";
 import LoginPage from "../pages/LoginPage";
 import PaymentReturnPage from "../pages/PaymentReturnPage";
 import SubscribePage from "../pages/SubscribePage";
+import SubscriptionPage from "../pages/SubscriptionPage";
 import ClusterOnboardingPage from "../pages/ClusterOnboardingPage";
 import MFAPage from "../pages/MFAPage";
 import MfaSecurityPage from "../pages/MfaSecurityPage";
@@ -41,6 +42,7 @@ export default function App() {
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/mfa" element={<MFAPage />} />
             <Route path="/subscribe" element={<SubscribePage />} />
+            <Route path="/subscription" element={<SubscriptionPage />} />
             <Route
               path="/payment/success"
               element={<PaymentReturnPage outcome="success" />}
@@ -155,6 +157,14 @@ export default function App() {
                 element={
                   <RequireRole roles={[ROLES.ADMIN]}>
                     <AdminAuditPage />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="admin/subscription"
+                element={
+                  <RequireRole roles={[ROLES.ADMIN]}>
+                    <SubscriptionPage />
                   </RequireRole>
                 }
               />

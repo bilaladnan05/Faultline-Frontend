@@ -35,6 +35,7 @@ export default function LoginPage() {
           state: {
             challengeToken: result.challengeToken,
             expiresAt: result.expiresAt,
+            trustedDeviceTtlDays: result.trustedDeviceTtlDays,
             email: result.user?.email || email,
           },
         });
@@ -121,11 +122,6 @@ export default function LoginPage() {
                   {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
               </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <input type="checkbox" id="remember" className="w-4 h-4 rounded border-gray-300 text-blue-600" />
-              <label htmlFor="remember" className="text-sm text-gray-600">Remember me for 30 days</label>
             </div>
 
             <button

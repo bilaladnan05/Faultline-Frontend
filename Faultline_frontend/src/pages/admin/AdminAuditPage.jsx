@@ -38,6 +38,7 @@ const ACTION_GROUPS = [
   { value: "auth.password-reset.requested", label: "Password reset requested" },
   { value: "auth.password-reset.completed", label: "Password reset completed" },
   { value: "auth.password-reset.failed", label: "Password reset failed" },
+  { value: "user.activity", label: "All authenticated API activity" },
   { value: "access.denied", label: "Refused access attempts" },
   { value: "project.created", label: "Projects created" },
   { value: "project.modified", label: "Projects modified" },

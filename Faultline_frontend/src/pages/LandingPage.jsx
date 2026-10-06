@@ -231,6 +231,7 @@ export default function LandingPage() {
             <a href="#pipeline">Pipeline</a>
             <a href="#detection">Detection</a>
             <a href="#telemetry">Telemetry</a>
+            <Link to="/subscription">Plans</Link>
             <a href="#start">Docs</a>
           </nav>
           <div className="nav-actions">
@@ -632,6 +633,7 @@ export default function LandingPage() {
             </div>
             <div className="foot-col">
               <strong>Start</strong>
+              <Link to="/subscription">Plans</Link>
               <Link to="/subscribe">Subscribe</Link>
               <Link to="/login">Sign in</Link>
               <a href="#start">Onboarding</a>

@@ -17,11 +17,12 @@ test("MFA login submits the challenge and code without an access token", async (
     assert.deepEqual(JSON.parse(options.body), {
       challengeToken: "challenge",
       code: "123456",
+      rememberDevice: true,
     });
     assert.equal(options.headers.Authorization, undefined);
     return new Response(JSON.stringify({ accessToken: "token", user: {} }), { status: 200 });
   };
-  assert.equal((await verifyMfaLogin("challenge", "123456")).accessToken, "token");
+  assert.equal((await verifyMfaLogin("challenge", "123456", true)).accessToken, "token");
 });
 
 test("the real MFA pages are routed and never accept arbitrary six-digit input", () => {
@@ -30,7 +31,8 @@ test("the real MFA pages are routed and never accept arbitrary six-digit input",
   const security = read("src/pages/MfaSecurityPage.jsx");
   assert.match(app, /path="\/mfa" element=\{<MFAPage \/>\}/);
   assert.match(app, /path="\/security\/mfa"/);
-  assert.match(login, /completeMfaSignIn\(challengeToken, normalized\)/);
+  assert.match(login, /completeMfaSignIn\(challengeToken, normalized, rememberDevice\)/);
+  assert.match(login, /Trust this device for \{trustedDeviceTtlDays\} days/);
   assert.doesNotMatch(login, /enter any 6 digits|setTimeout\(/i);
   assert.match(security, /startMfaEnrollment/);
   assert.match(security, /finishMfaEnrollment/);
