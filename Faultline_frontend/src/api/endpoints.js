@@ -230,7 +230,8 @@ export const listAuditLog = (filter = {}, options) =>
 
 /**
  * @param {{cluster?: string, namespace?: string, status?: string,
- *          severity?: string, classification?: string}} filter
+ *          severity?: string, classification?: string, search?: string,
+ *          service?: string, from?: string, to?: string}} filter
  */
 export const listIncidents = (filter = {}, options) =>
   apiGet(
@@ -241,6 +242,10 @@ export const listIncidents = (filter = {}, options) =>
       status: filter.status,
       severity: filter.severity,
       classification: filter.classification,
+      search: filter.search,
+      service: filter.service,
+      from: filter.from,
+      to: filter.to,
     },
     options,
   );

@@ -224,10 +224,15 @@ test("the Incident Ledger is the incidents list, and incident details remain", (
 
 test("the ledger carries the list's search, filters and live refresh", () => {
   const ledger = read("src/pages/LedgerPage.jsx");
-  // Status and severity go to the API; the search narrows what is loaded.
-  assert.match(ledger, /listIncidents\(\{ severity, status \}, \{ signal \}\),\s*\[severity, status\],\s*\{ pollMs: livePollMs \}/);
-  assert.match(ledger, /aria-label="Filter by status"/);
+  // Every filter goes to the API and is retained in the URL.
+  assert.match(ledger, /listIncidents\([\s\S]*search: deferredSearch[\s\S]*classification[\s\S]*severity[\s\S]*service: deferredService[\s\S]*from: localInstant\(from\)[\s\S]*to: localInstant\(to\)[\s\S]*status/);
+  assert.match(ledger, /useSearchParams/);
+  assert.match(ledger, /aria-label="Filter by incident type"/);
   assert.match(ledger, /aria-label="Filter by severity"/);
+  assert.match(ledger, /aria-label="Filter by affected service"/);
+  assert.match(ledger, /aria-label="Detected from"/);
+  assert.match(ledger, /aria-label="Detected to"/);
+  assert.match(ledger, /aria-label="Filter by resolution status"/);
   assert.match(ledger, /aria-label="Search incidents"/);
   assert.match(ledger, /<StaleBanner error=\{query\.data \? query\.error : null\}/);
   // Newest first, and every row still opens the incident's details page.
