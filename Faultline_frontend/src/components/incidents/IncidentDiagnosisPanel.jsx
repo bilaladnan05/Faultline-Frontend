@@ -8,13 +8,16 @@ const failureText = {
   provider_invalid: "The provider returned an invalid diagnosis. It has not been treated as authoritative.",
 };
 
-export default function IncidentDiagnosisPanel({ evidence, scope }) {
+export default function IncidentDiagnosisPanel({ evidence, contextQuery, context }) {
   const [diagnosis, setDiagnosis] = useState(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(null);
   const [citation, setCitation] = useState(null);
   const [testResult, setTestResult] = useState(null);
 
+  const scope = context?.scope;
+  if (contextQuery?.loading && !context) return <section className="rounded-lg border border-indigo-100 bg-indigo-50 p-4 text-sm text-indigo-900">Loading the exact diagnosis context…</section>;
+  if (contextQuery?.error && !context) return <section className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><p className="font-semibold">Diagnosis context is unavailable</p><p className="mt-1 text-xs">{contextQuery.error.message || "The backend did not return a diagnosis context."}</p><button type="button" onClick={contextQuery.refetch} className="mt-2 text-xs font-semibold underline">Retry</button></section>;
   if (!scope?.projectId || !scope?.incidentRevisionId || !scope?.evidenceSnapshotId) {
     return <section className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><p className="font-semibold">Diagnosis context is not available yet</p><p className="mt-1 text-xs leading-relaxed">The backend must provide the exact project, revision, and evidence snapshot identifiers before a diagnosis can be requested. No inferred or synthetic diagnosis is shown.</p></section>;
   }

@@ -275,6 +275,43 @@ export const getIncidentCommunications = (id, options) =>
 export const getIncidentNotificationAttempts = (id, options) =>
   apiGet(`/incidents/${encodeURIComponent(id)}/notification-attempts`, undefined, options);
 
+/* ----------------------------------------------- bounded diagnostics */
+
+const diagnosticScopePath = ({
+  projectId,
+  incidentId,
+  incidentRevisionId,
+  evidenceSnapshotId,
+}) =>
+  `/projects/${encodeURIComponent(projectId)}/incidents/${encodeURIComponent(incidentId)}/revisions/${encodeURIComponent(incidentRevisionId)}/evidence-snapshots/${encodeURIComponent(evidenceSnapshotId)}`;
+
+/** Starts a provider-backed diagnosis for an exact incident revision and evidence snapshot. */
+export const investigateIncident = (scope, options) =>
+  apiPost(
+    `${diagnosticScopePath(scope)}/diagnostics`,
+    undefined,
+    options,
+  );
+
+/** Runs one reviewed, read-only diagnostic test against the exact evidence snapshot. */
+export const runDiagnosticTest = (scope, body, options) =>
+  apiPost(
+    `${diagnosticScopePath(scope)}/diagnostic-tests`,
+    body,
+    options,
+  );
+
+export const getIncidentDiagnosisContext = (projectId, incidentId, options) =>
+  apiGet(`/projects/${encodeURIComponent(projectId)}/incidents/${encodeURIComponent(incidentId)}/diagnosis-context`, undefined, options);
+
+/** Resolves a citation back to inspectable Faultline evidence. */
+export const getIncidentCitation = (scope, citationId, options) =>
+  apiGet(
+    `/incidents/${encodeURIComponent(scope.incidentId)}/revisions/${encodeURIComponent(scope.incidentRevisionId)}/evidence-snapshots/${encodeURIComponent(scope.evidenceSnapshotId)}/citations/${encodeURIComponent(citationId)}`,
+    undefined,
+    options,
+  );
+
 /* ------------------------------------------------------------- telemetry */
 
 /** `startTime`/`endTime` are mandatory: the API refuses an unbounded window. */

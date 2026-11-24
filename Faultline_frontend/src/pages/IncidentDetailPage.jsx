@@ -2,7 +2,7 @@ import { ArrowLeft, BrainCircuit, FileText, Radio } from "lucide-react";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { adaptIncident } from "../api/adapters";
-import { getIncident, getIncidentEvidence, updateIncidentEta } from "../api/endpoints";
+import { getIncident, getIncidentDiagnosisContext, getIncidentEvidence, updateIncidentEta } from "../api/endpoints";
 import IncidentEvidencePanel from "../components/incidents/IncidentEvidencePanel";
 import IncidentHeader from "../components/incidents/IncidentHeader";
 import IncidentTechnicalReport from "../components/incidents/IncidentTechnicalReport";
@@ -19,10 +19,11 @@ export default function IncidentDetailPage() {
   const [tab, setTab] = useState("evidence");
   const incidentQuery = useApiResource(({ signal }) => getIncident(id, { signal }), [id], { enabled: Boolean(id) });
   const evidenceQuery = useApiResource(({ signal }) => getIncidentEvidence(id, {}, { signal }), [id], { enabled: Boolean(id) });
+  const diagnosisContextQuery = useApiResource(({ signal }) => getIncidentDiagnosisContext(incidentQuery.data?.clusterId, id, { signal }), [incidentQuery.data?.clusterId, id], { enabled: Boolean(incidentQuery.data?.clusterId && id) });
   const reportQuery = useIncidentReport(id);
   const slackQuery = useIncidentSlackTicket(id);
   const incident = adaptIncident(incidentQuery.data);
-  const diagnosisScope = incidentQuery.data?.diagnosisScope ?? incidentQuery.data?.context?.scope;
+  const diagnosisContext = diagnosisContextQuery.data;
 
   return <div className="flex flex-col flex-1">
     <TopBar breadcrumbs={["Incident Ledger", id ?? "Detail"]} />
@@ -40,7 +41,7 @@ export default function IncidentDetailPage() {
               </div>
               <div className="p-5">
                 {tab === 'evidence' && <IncidentEvidencePanel query={evidenceQuery} incident={incident} />}
-                {tab === 'diagnosis' && <IncidentDiagnosisPanel evidence={evidenceQuery.data} scope={diagnosisScope} />}
+                {tab === 'diagnosis' && <IncidentDiagnosisPanel evidence={evidenceQuery.data} contextQuery={diagnosisContextQuery} context={diagnosisContext} />}
                 {tab === 'report' && <IncidentTechnicalReport query={reportQuery} incidentId={id} />}
               </div>
             </section>
