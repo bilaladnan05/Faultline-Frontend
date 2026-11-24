@@ -1,4 +1,4 @@
-import { ArrowLeft, FileText, Radio } from "lucide-react";
+import { ArrowLeft, BrainCircuit, FileText, Radio } from "lucide-react";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { adaptIncident } from "../api/adapters";
@@ -6,6 +6,7 @@ import { getIncident, getIncidentEvidence, updateIncidentEta } from "../api/endp
 import IncidentEvidencePanel from "../components/incidents/IncidentEvidencePanel";
 import IncidentHeader from "../components/incidents/IncidentHeader";
 import IncidentTechnicalReport from "../components/incidents/IncidentTechnicalReport";
+import IncidentDiagnosisPanel from "../components/incidents/IncidentDiagnosisPanel";
 import SlackTicketStatus from "../components/incidents/SlackTicketStatus";
 import TopBar from "../components/layout/TopBar";
 import { AsyncSection } from "../components/ui/AsyncState";
@@ -21,6 +22,7 @@ export default function IncidentDetailPage() {
   const reportQuery = useIncidentReport(id);
   const slackQuery = useIncidentSlackTicket(id);
   const incident = adaptIncident(incidentQuery.data);
+  const diagnosisScope = incidentQuery.data?.diagnosisScope ?? incidentQuery.data?.context?.scope;
 
   return <div className="flex flex-col flex-1">
     <TopBar breadcrumbs={["Incident Ledger", id ?? "Detail"]} />
@@ -33,10 +35,12 @@ export default function IncidentDetailPage() {
             <section className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
               <div className="flex border-b border-gray-100 bg-gray-50/50">
                 <Tab active={tab === 'evidence'} onClick={() => setTab('evidence')} icon={Radio}>Evidence</Tab>
+                <Tab active={tab === 'diagnosis'} onClick={() => setTab('diagnosis')} icon={BrainCircuit}>Diagnosis</Tab>
                 <Tab active={tab === 'report'} onClick={() => setTab('report')} icon={FileText}>Technical report</Tab>
               </div>
               <div className="p-5">
                 {tab === 'evidence' && <IncidentEvidencePanel query={evidenceQuery} incident={incident} />}
+                {tab === 'diagnosis' && <IncidentDiagnosisPanel evidence={evidenceQuery.data} scope={diagnosisScope} />}
                 {tab === 'report' && <IncidentTechnicalReport query={reportQuery} incidentId={id} />}
               </div>
             </section>
