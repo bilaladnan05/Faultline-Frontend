@@ -1,7 +1,7 @@
 {
   "controlPlane": "https://github.com/Livox91/faultline-control-plane.git",
-  "revision": "v1.0.0",
-  "commit": "1a4531640d14fa19b86ad2299808d2c9272e5c46",
+  "revision": "v1.1.0",
+  "commit": "d2bfb9af620a117dd291c9b0f505b85a2a30cfe7",
   "requiredSkills": ["faultline-verification"],
   "workspaceState": "../.ai",
   "fallbackState": ".agent-control"
