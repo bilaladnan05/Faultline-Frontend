@@ -2,6 +2,8 @@
 
 Before working, read the workspace-level `../.ai/handoff.md`, `../.ai/task-state.md`, and `../.ai/decisions.md`, then inspect this repository's README and package scripts.
 
+In a clean clone where the workspace-level `.ai/` directory is unavailable, use the versioned `.agent-control/` files in this repository.
+
 Keep frontend changes inside this repository unless a cross-repository contract change is explicitly recorded in `../.ai/decisions.md`. At handoff, update the workspace-level `.ai` files with changed files, API or UI contract changes, tests, risks, blockers, and exact Git state.
 
 ## User workflow preferences

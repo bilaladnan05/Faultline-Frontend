@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["objective", "status", "validation", "branch", "commit"],
+  "properties": {
+    "objective": {"type": "string", "minLength": 1},
+    "status": {"enum": ["in_progress", "blocked", "ready_for_review", "complete"]},
+    "validation": {"type": "object", "required": ["commands", "overall"], "properties": {"commands": {"type": "array"}, "overall": {"enum": ["pass", "partial", "fail", "not_run"]}}},
+    "branch": {"type": "string", "minLength": 1},
+    "commit": {"type": "string", "minLength": 1}
+  }
+}

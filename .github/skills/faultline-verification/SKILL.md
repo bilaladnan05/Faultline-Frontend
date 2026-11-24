@@ -21,10 +21,11 @@ Run from `Faultline-Frontend/Faultline_frontend/`:
 1. `npm run lint`
 2. `npm run build`
 3. `npm test`
-4. Run targeted tests for changed behavior.
-5. Exercise the affected user flow when a browser or preview environment is available.
-6. Run the PStack `no-comments` skill on the changed diff when available.
-7. Use PStack `prove-it-works`, `correct`, or the established verification skill for behavior-level review when available.
+4. `npm run verify:agentic-sdlc`
+5. Run targeted tests for changed behavior.
+6. Exercise the affected user flow when a browser or preview environment is available.
+7. Run the PStack `no-comments` skill on the changed diff when available.
+8. Use PStack `prove-it-works`, `correct`, or the established verification skill for behavior-level review when available.
 
 ## Review gates
 
